@@ -44,12 +44,12 @@ El sistema se rige por la documentación ubicada en `docs/`. **Esta es la fuente
 ### Personas y Estándares
 -   `AGENTS.md`: Directivas maestras para los GEMs.
 -   `prompts/`: Definición de las Personas.
-    -   [tlacuilo.md](prompts/tlacuilo.md): Tlacuilo Digital.
+    -   [tlacuilo_digital.md](prompts/tlacuilo_digital.md): Tlacuilo Digital.
     -   [tlacuilo_ixtli.md](prompts/tlacuilo_ixtli.md): Tlacuilo Ixtli.
--   `references/`: Reglas de negocio.
-    -   [STATUSES.md](references/STATUSES.md): Madurez del proyecto.
-    -   [structure_technical.md](references/structure_technical.md): Guía STAR.
-    -   [structure_mind.md](references/structure_mind.md): Guía Manifiesto.
+-   `docs/definitions/`: Reglas de negocio.
+    -   [MATURITY_LEVELS.md](docs/definitions/MATURITY_LEVELS.md): Madurez del proyecto.
+    -   [ATOMS_BITS_STRUCTURE.md](docs/definitions/ATOMS_BITS_STRUCTURE.md): Guía STAR.
+    -   [MIND_STRUCTURE.md](docs/definitions/MIND_STRUCTURE.md): Guía Manifiesto.
 
 ## Estética y Filosofía
 El sistema sigue la línea de diseño **"Huitzilopochtli Wireframe"**:

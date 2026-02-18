@@ -34,6 +34,7 @@ Tlacuilo asume que estos servicios ya corren en el host del usuario ("Bring Your
 1.  `docker compose up`: Levanta backend y frontend con *Hot Reload*.
 2.  Desarrollador edita código en `/frontend` o `/backend`.
 3.  Cambios se reflejan inmediatamente.
+4.  **REGLA**: NO reiniciar contenedores para aplicar cambios de código. Solo se reinician si se modifica la red, volúmenes o variables de entorno.
 
 ### Ciclo de Producción (Local)
 1.  `docker compose -f docker-compose.prod.yml up --build`.

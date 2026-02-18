@@ -40,7 +40,7 @@ El usuario utiliza una herramienta separada ("Nano Banana") via otra instancia d
     -   Las sube al chat de la IA generadora de imágenes.
 
 2.  **Prompting Manual**:
-    -   El usuario copia las guías de estilo (`DESIGN_BLUEPRINT.md`) y el prompt de "Tlacuilo Ixtli".
+    -   El usuario copia las guías de estilo (`${PORTAFOLIO}/design/DESIGN_BLUEPRINT.md`) y el prompt de "Tlacuilo Ixtli".
     -   Lo pega en el chat de imagen.
     -   Sube la foto de referencia.
 

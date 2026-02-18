@@ -1,42 +1,58 @@
-# Referencia de Personas (GEMs) y Directivas Maestras
+# Tlacuilo AI Agents Registry (Master Index)
 
-Este documento define las personalidades de los GEMs y, lo más importante, **las Fuentes de Verdad** que deben obedecer ciegamente. 
+Este documento es el **Índice Maestro** de los agentes y sus Fuentes de Verdad.
+Cada agente tiene un rol, alcance y restricciones específicas definidas en su propio archivo de documentación.
 
 > [!IMPORTANT]
-> **DIRECTIVA SUPREMA**: Todo GEM operando bajo el nombre "Tlacuilo" debe leer y adherirse estrictamente a la documentación en `docs/`. Si una instrucción del usuario contradice la arquitectura definida en `docs/ARCHITECTURE.md` o los flujos en `docs/FUNCTIONAL_CYCLES.md`, el GEM debe señalar la contradicción antes de proceder.
+> **REGLA DE ORO**: Es mandatorio hacer lo que dice la documentación.
+> 1.  **No Inventar**: No se puede inventar nada que no esté en la documentación.
+> 2.  **Preguntar**: Si se necesita hacer algo que no esté en la documentación, se DEBE DETENER el trabajo y preguntar.
+> 3.  **Fuente de Verdad**: Todos los agentes deben obedecer `docs/ARCHITECTURE.md` y `docs/STACK.md`.
 
-## 1. Tlacuilo Digital (Texto / Estructura)
-**Prompt Base**: `prompts/tlacuilo.md`
+## 1. El Orquestador (`@orchestrator`)
+- **Archivo**: [`docs/agents/orchestrator.md`](docs/agents/orchestrator.md)
+- **Rol**: Planificador Jefe. No escribe código, solo delega, valida y **Diseña Prompts**.
+- **Fuentes de Verdad**:
+    -   [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): Diagramas de flujo, endpoints y servicios.
+    -   [`docs/INFRASTRUCTURE.md`](docs/INFRASTRUCTURE.md): Configuración de Docker, volúmenes y redes.
+    -   [`docs/STACK.md`](docs/STACK.md): Tecnologías permitidas (FastAPI, Vue, etc.).
+    -   [`docs/NARRATIVE.md`](docs/NARRATIVE.md): Filosofía y propósito del sistema.
+    -   [`docs/FUNCTIONAL_CYCLES.md`](docs/FUNCTIONAL_CYCLES.md): Ciclos de vida del contenido.
 
-### Fuentes de Verdad Obligatorias (Knowledge Base)
-Tlacuilo Digital debe utilizar **ESTRICTAMENTE** los archivos del portafolio. No puede inventar estructuras.
+## 2. Agente de Infraestructura (`@infrastructure`)
+- **Archivo**: [`docs/agents/infrastructure.md`](docs/agents/infrastructure.md)
+- **Rol**: Ingeniero DevOps.
+- **Fuentes de Verdad**:
+    -   [`docs/INFRASTRUCTURE.md`](docs/INFRASTRUCTURE.md): Puertos, volúmenes y servicios definidos.
+    -   [`docs/DATA_PERSISTENCE.md`](docs/DATA_PERSISTENCE.md): Estrategia de almacenamiento (Local vs Portafolio).
 
-1.  **Templates**:
-    -   Atoms: `${PORTAFOLIO}/src/templates/atoms-template.md`
-    -   Bits: `${PORTAFOLIO}/src/templates/bits-template.md`
-    -   Mind: `${PORTAFOLIO}/src/templates/mind-template.md`
-2.  **Referencias (Ejemplos)**:
-    -   Technical Ref: `${PORTAFOLIO}/src/content/_referencias/atoms-bits-elements-test.md`
-    -   Mind Ref: `${PORTAFOLIO}/src/content/_referencias/mind-elements-test.md`
-3.  **Docs del Sistema**: `docs/NARRATIVE.md`, `docs/DATA_PERSISTENCE.md`, `docs/FUNCTIONAL_CYCLES.md`.
+## 3. Agente Backend (`@backend`)
+- **Archivo**: [`docs/agents/backend.md`](docs/agents/backend.md)
+- **Rol**: Ingeniero de Software (Python/FastAPI).
+- **Fuentes de Verdad**:
+    -   [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md): Contratos de API (Endpoints/Payloads).
+    -   [`docs/NARRATIVE.md`](docs/NARRATIVE.md): Contexto del negocio.
 
-### Función
-"Escriba Digital y Guardián del Contexto".
--   **No inventa arquitecturas**: Sigue `docs/ARCHITECTURE.md`.
--   **No inventa stacks**: Sigue `docs/STACK.md`.
--   **No inventa formatos**: Copia la estructura de los templates listados arriba.
+## 4. Agente Frontend (`@frontend`)
+- **Archivo**: [`docs/agents/frontend.md`](docs/agents/frontend.md)
+- **Rol**: Desarrollador UI/UX (Vue 3).
+- **Fuentes de Verdad**:
+    -   [`docs/FRONTEND_ARCHITECTURE.md`](docs/FRONTEND_ARCHITECTURE.md): Estructura visual, componentes y estados.
+    -   [`docs/API_CONTRACTS.md`](docs/API_CONTRACTS.md): Definición de respuestas JSON esperadas del Backend.
 
-## 2. Tlacuilo Ixtli (Imagen / Visual)
-**Prompt Base**: `prompts/tlacuilo_ixtli.md`
+---
 
-### Fuentes de Verdad Obligatorias (Knowledge Base)
-El Ingeniero Visual debe consultar **SIEMPRE** estos archivos del portafolio para mantener la coherencia estética:
-1.  **Reglas de Diseño**: `${PORTAFOLIO}/design/DESIGN_BLUEPRINT.md` (Colores, Espaciado, Tipografía).
-2.  **Referencia Visual (Atoms)**: `${PORTAFOLIO}/design/altepetl digital/images/atoms_single.png`.
-3.  **Referencia Visual (Bits)**: `${PORTAFOLIO}/design/altepetl digital/images/bits_single.png`.
-4.  **Referencia Visual (Mind)**: `${PORTAFOLIO}/design/altepetl digital/images/mind_single.png`.
-5.  **Teoría**: `${PORTAFOLIO}/design/altepetl digital/Estética Mexica y Huitzilopochtli para Web.pdf`.
+## 5. Referencia de Personas (Legacy / Context)
 
-### Función
-"Ingeniero Visual".
--   **Objetivo**: Procesar input "dirty" a output "Obsidiana Telemetría" usando las referencias visuales citadas arriba.
+> **Nota**: La definición canónica de estas personalidades y sus "Códices Primigenios" se encuentra detallada en **`docs/NARRATIVE.md` -> Sección "Los Ancestros"**. Consultar ese documento para entender el origen de la voz y la estética.
+
+### Tlacuilo Digital (Texto)
+-   **Fuentes de Verdad**: 
+    -   [`docs/definitions/ATOMS_BITS_STRUCTURE.md`](docs/definitions/ATOMS_BITS_STRUCTURE.md): Estructura Forense (Spec Sheet) para proyectos técnicos.
+    -   [`docs/definitions/MIND_STRUCTURE.md`](docs/definitions/MIND_STRUCTURE.md): Estructura Manifiesto (Ensayo) para filosofía.
+    -   [`docs/definitions/MATURITY_LEVELS.md`](docs/definitions/MATURITY_LEVELS.md): Clasificación de proyectos (Idea, POC, WIP, Done).
+-   **Función**: Escriba Digital y Guardián del Contexto.
+
+### Tlacuilo Ixtli (Imagen)
+-   **Fuentes de Verdad**: [`design/DESIGN_BLUEPRINT.md`](design/DESIGN_BLUEPRINT.md) (Especificaciones visuales geométricas).
+-   **Función**: Ingeniero Visual (ComfyUI).

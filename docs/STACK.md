@@ -37,7 +37,7 @@ Entidades externas con las que el sistema interactúa.
     -   Interacción: WebSocket + API REST para encolar workflows JSON.
 
 ## 5. Estructura de Referencias
-El sistema se apoya en definiciones constantes ubicadas en `references/`:
--   `STATUSES.md`: Estados de madurez del proyecto.
--   `structure_technical.md`: Plantilla mental para proyectos técnicos.
--   `structure_mind.md`: Plantilla mental para ensayos.
+El sistema se apoya en definiciones constantes ubicadas en `docs/definitions/`:
+-   `MATURITY_LEVELS.md`: Estados de madurez del proyecto.
+-   `ATOMS_BITS_STRUCTURE.md`: Plantilla mental para proyectos técnicos.
+-   `MIND_STRUCTURE.md`: Plantilla mental para ensayos.

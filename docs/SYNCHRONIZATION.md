@@ -1,38 +1,40 @@
-# Escenarios de Sincronización y Alineación
+# Estrategia de Sincronización
 
-Tlacuilo debe manejar la discrepancia entre la "Verdad Externa" (Portafolio) y la "Memoria Interna" (`data/`). Aquí se definen los protocolos para los tres escenarios principales.
+Este documento define las reglas de oro para la sincronización entre el **Portafolio** (Sistema de Archivos Externo) y la **Memoria Local** (`projects/`).
 
-## Escenario A: Proyecto Existente, Tlacuilo Nuevo
-**Caso**: Existe `atoms/teclado/index.md` en el portafolio, pero NO existe `data/atoms/teclado/`.
-**Cuándo ocurre**: Al iniciar Tlacuilo por primera vez o al añadir archivos manualmente.
+## Principios Fundamentales
 
-**Protocolo (Hidratación)**:
-1.  **Detección**: El scanner de proyectos encuentra la carpeta en el portafolio.
-2.  **Acción**:
-    -   Tlacuilo crea silenciosamente la carpeta `data/atoms/teclado/`.
-    -   Inicializa `chat_history.json` vacío.
-    -   Lee el `.md` actual e inyecta un "System Message" invisible en el historial: *"Contexto inicial cargado desde archivo existente: [Resumen/Contenido]"*.
-3.  **Resultado**: El GEM "sabe" lo que hay en el archivo, aunque no haya chateado antes.
+1.  **La Verdad está en el Portafolio**: El contenido final de los archivos `.md` en el portafolio es la fuente de verdad para la publicación.
+2.  **La Memoria Local es Resiliente**: Si el Portafolio falla o falta un archivo, la Memoria Local (`projects/{slug}/{slug}.md`) asume el control temporalmente para evitar la pérdida de datos y permitir la visibilidad en la UI.
+3.  **Local-First en Creación**: Al crear un proyecto, los metadatos iniciales (título, tipo) se escriben PRIMERO en la Memoria Local.
 
-## Escenario B: Memoria Huérfana
-**Caso**: Existe `data/atoms/fantasma/` con historial de chat, pero NO existe `atoms/fantasma/index.md` en el portafolio.
-**Cuándo ocurre**: El usuario borró manualmente la carpeta del proyecto en el sistema de archivos.
+## Protocolos de Manejo de Proyectos
 
-**Protocolo (Limpieza/Rescate)**:
-1.  **Detección**: Al listar proyectos, Tlacuilo ve datos en `data/` sin par en el portafolio.
-2.  **Acción (UI)**: Muestra el proyecto marcado como "⚠️ Missing Files".
-3.  **Opciones al Usuario**:
-    -   *Opción 1 (Olvido)*: Borrar la memoria interna (Eliminar `data/atoms/fantasma/`).
-    -   *Opción 2 (Resurrección)*: Regenerar el archivo `.md` base a partir del último estado conocido en la memoria.
+### 1. Creación de Proyectos
+Cuando se crea un proyecto nuevo:
+1.  Se genera el `slug` basado en el nombre.
+2.  Se crea la carpeta en `projects/{coleccion}/{slug}/`.
+3.  Se copia la plantilla correspondiente (`atoms`, `bits`, `mind`).
+4.  **Inyección de Metadatos**: El sistema reemplaza el título genérico de la plantilla con el nombre proporcionado por el usuario en el archivo local `{slug}.md`.
+5.  El proyecto nace en estado `borrador` y vive solo localmente hasta que se decida "Publicar" o "Restaurar" al portafolio.
 
-## Escenario C: Sincronización Normal
-**Caso**: Existen tanto el archivo `.md` como la memoria en `data/`.
-**Cuándo ocurre**: Operación diaria normal.
+### 2. Lectura y Listado (Omni-Scanner)
+El proceso `list_projects` escanea ambas ubicaciones:
+1.  **Portafolio**: Busca carpetas y archivos en el portafolio.
+2.  **Local**: Busca carpetas en `projects/`.
 
-**Protocolo (Alineación)**:
-1.  **Carga**: Se leen ambos.
-2.  **Verificación**: Tlacuilo confía ciegamente en el `.md` como la verdad actual del contenido. La memoria (`data/`) solo aporta el contexto conversacional.
-3.  **Conflicto**: Si el usuario editó el `.md` manualmente fuera de Tlacuilo, el GEM recibe el nuevo contenido como contexto actualizado en la siguiente interacción. *"Veo que editaste el archivo manualmente..."*.
+**Resolución de Conflictos de Metadatos**:
+-   **Escenario Ideal**: El archivo existe en Portafolio. Se leen los metadatos de ahí.
+-   **Escenario Huérfano (Missing MD)**: El archivo existe en Local pero NO en Portafolio. Se leen los metadatos del archivo local.
+-   **Escenario Roto (Missing File)**: La carpeta existe en Local pero NO hay archivo `.md` (ni local ni remoto).
+    -   El sistema **NO** oculta el proyecto.
+    -   Muestra el `slug` como nombre.
+    -   Marca el proyecto con `missing_md: true` y `missing_files: true`.
+    -   Esto permite al usuario ver que algo existe y tomar acciones (borrar o investigar), en lugar de tener "archivos fantasma" invisibles.
 
-## Regla de Oro
-**El Portafolio manda.** Tlacuilo nunca sobreescribe el Portafolio automáticamente al arrancar. Solo escribe cuando el usuario explícitamente ejecuta una acción de "Guardar" o "Generar".
+### 3. Sincronización de Contenido
+-   Tlacuilo NO sobrescribe automáticamente el Portafolio al iniciar.
+-   La sincronización hacia el Portafolio ocurre explícitamente mediante acciones de usuario (Guardar, Publicar).
+
+---
+*Documento actualizado para reflejar la estrategia "Local-First" y robustez ante archivos faltantes.*

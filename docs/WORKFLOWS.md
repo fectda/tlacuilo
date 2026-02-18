@@ -43,6 +43,7 @@ El agente dialoga con el usuario para llenar la estructura narrativa específica
 
 ### Objetivo
 Estilizar fotografías reales para cumplir la estética "Obsidiana Telemetría" manteniendo la geometría del objeto.
+> **Referencia**: Ver Códice de Imagen en `prompts/tlacuilo_ixtli.md` (Definido en `docs/NARRATIVE.md`).
 
 ### Pipeline ComfyUI
 El sistema orquesta un flujo complejo mediante WebSocket `ws://localhost:8188`:
