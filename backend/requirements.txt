@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+pydantic
+python-dotenv
+gitpython
+requests
+python-frontmatter
+websockets
+python-multipart
+pytest
+pytest-asyncio
+pytest-mock
+httpx
+
