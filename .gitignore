@@ -9,8 +9,6 @@ Thumbs.db
 .env.*
 !.env.example
 
-# Legacy & Archives
-old/
 
 # Tlacuilo Internal Memory & Agents
 data/
@@ -18,23 +16,6 @@ brain/
 .agent/
 .agents/
 .tlacuilo/
-
-# Python / Backend
-__pycache__/
-*.py[cod]
-*$py.class
-venv/
-.venv/
-env/
-
-# Node / Frontend
-node_modules/
-dist/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.output/
-.nuxt/
 
 # Docker
 docker-compose.override.yml
