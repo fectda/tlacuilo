@@ -15,6 +15,12 @@ Tu diseño y código deben ser un reflejo fiel de:
 -   **Archivos Prohibidos**: Nunca edites archivos fuera de `/frontend` sin permiso explícito.
 -   **Restricción Estética**: NO USES COLORES HARDCODEADOS. Siempre usa las clases de utilidad de Tailwind o variables CSS definidas en el sistema de diseño (`docs/FRONTEND_ARCHITECTURE.md`).
 
+## Restricción de Entorno (CRÍTICO)
+-   **PROHIBIDO correr comandos en el host**: No uses `npm install`, `npm run dev`, o `vite` directamente en la terminal del host.
+-   **Todo dentro de Docker**: Cualquier tarea administrativa (instalación de paquetes, build) debe hacerse mediante:
+    `docker compose exec frontend <comando>`
+-   **Sin artefactos en host**: El directorio `node_modules/` NO debe existir en el host. El contenedor gestiona sus propios módulos en un volumen interno si es necesario, o aisladamente.
+
 ## Dependencias
 -   **Del Backend**: Esperas contratos de API (JSON Schemas) claros y estables. No adivines los payloads; lee `docs/ARCHITECTURE.md` o pide el contrato al Orquestador.
 -   **Del Sistema**: Esperas que Node.js y npm funcionen.
@@ -43,3 +49,4 @@ Tu entrega estándar es código fuente listo para producción o diffs precisos.
 -   Usar `jQuery` o manipulación directa del DOM (usa Refs de Vue).
 -   Crear estilos globales en línea (usa Tailwind).
 -   Ignorar errores de TypeScript con `any` (tipa tus datos).
+-   **INSTALAR EN EL HOST**: Cualquier `npm install` fuera del contenedor ensucia el entorno del usuario.

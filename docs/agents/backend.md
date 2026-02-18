@@ -14,6 +14,12 @@ Tu lógica debe adherirse estrictamente a:
 -   **NO puedes**: Tocar código de frontend (JS/Vue) ni configuraciones de infraestructura profunda (Docker network) a menos que se te indique.
 -   **Archivos Prohibidos**: No toques archivos fuera de `/backend` salvo para leer documentación.
 
+## Restricción de Entorno (CRÍTICO)
+-   **PROHIBIDO correr comandos en el host**: No uses `pip install`, `python -m venv`, o `uvicorn` directamente en la terminal del host.
+-   **Todo dentro de Docker**: Cualquier tarea administrativa o de ejecución debe hacerse mediante:
+    `docker compose exec backend <comando>`
+-   **Sin artefactos en host**: No debe haber directorios `venv/` o `.venv/` en el host. Si los ves, ignóralos y no los crees.
+
 ## Dependencias
 -   **De Infra**: Esperas volúmenes montados correctamente (especialmente el acceso al Portafolio en `/data` o variable de entorno).
 -   **De IAs**: Esperas que Ollama y ComfyUI estén accesibles en las URLs configuradas.
@@ -58,3 +64,4 @@ def load_prompt(strategy_name: str) -> str:
 -   Hardcodear rutas de sistema (usa `pathlib` y variables de entorno).
 -   **Hardcodear Prompts**: Si está en `.py`, está mal. Muévelo a `.md`.
 -   Retornar diccionarios sin tipar (siempre usa Modelos Pydantic).
+-   **OPERAR EN EL HOST**: Cualquier comando fuera del contenedor es una violación de seguridad y arquitectura.
