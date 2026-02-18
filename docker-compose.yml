@@ -1,0 +1,51 @@
+
+
+services:
+  backend:
+    build: 
+      context: ./backend
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    ports:
+      - "8000:8000"
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./backend:/home/tlacuilo/app
+      - ./projects:/home/tlacuilo/projects
+      - ./portafolio:/home/tlacuilo/portfolio
+      - ./prompts:/app/prompts:ro
+    env_file:
+      - .env
+    environment:
+      - PORTAFOLIO_PATH=/home/tlacuilo/portfolio
+      - PROJECTS_PATH=/home/tlacuilo/projects
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    env_file:
+      - .env
+    restart: unless-stopped
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5173"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
