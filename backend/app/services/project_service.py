@@ -266,10 +266,31 @@ class ProjectService:
         # Copy portfolio to local
         shutil.copy2(portfolio_md, local_md)
         
-        # Reset flag
-        self.update_project_state(collection, slug, {"is_working_copy_active": False})
+        # Reset flag and set status to revision
+        self.update_project_state(collection, slug, {
+            "is_working_copy_active": False,
+            "doc_status": "revisión"
+        })
         
         return {"status": "reverted", "source": "portfolio"}
+
+    def get_chat_history_safe(self, collection: str, slug: str) -> List[Dict[str, Any]]:
+        """
+        Returns chat history filtering out system_only messages.
+        """
+        local_dir = self.local_path / collection / slug
+        history_file = local_dir / "chat_history.json"
+        
+        if not history_file.exists():
+            return []
+            
+        try:
+            history = json.loads(history_file.read_text())
+            # Filter out system_only messages
+            return [msg for msg in history if not msg.get("system_only", False)]
+        except Exception as e:
+            logger.error(f"Error reading chat history for {slug}: {e}")
+            return []
 
     def save_working_copy(self, collection: str, slug: str, content: str) -> Dict[str, Any]:
         """

@@ -173,6 +173,9 @@ class ChatService:
                 response = await client.post(f"{self.ollama_host}/api/chat", json=payload)
                 response.raise_for_status()
                 return response.json()["message"]["content"]
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Ollama HTTP Error: {e.response.text}")
+            return f"Error: Ollama devolvió {e.response.status_code}. Payload: {json.dumps(payload)}. Respuesta: {e.response.text}"
         except Exception as e:
             logger.error(f"Error calling Ollama: {e}")
             return f"Error: No se pudo conectar con el servicio de IA ({self.ollama_host}). Detalle: {str(e)}"

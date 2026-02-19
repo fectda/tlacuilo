@@ -24,16 +24,32 @@ def get_chat_service():
 
 # --- Sincronización de Contexto ---
 
-@router.get("/{collection}/{slug}", response_model=Dict[str, Any])
+@router.get("/{collection}/{slug}/content", response_model=Dict[str, Any])
 async def get_project_content(collection: str, slug: str, service: ProjectService = Depends(get_project_service)):
     """
-    GET /api/{collection}/{slug}: Inicializa la sesión de trabajo.
-    Aplica las Reglas de Precedencia para cargar el MD correcto.
+    GET .../content: Obtiene el contenido del documento.
+    Responsabilidad: Devolver el texto del archivo .md y su estado.
     """
-    result = service.get_working_copy(collection, slug)
-    if "error" in result:
-        raise HTTPException(status_code=result.get("status_code", 400), detail=result["error"])
-    return result
+    # TODO: Refactor service to allow non-mutating read (no hydration) if required strict adherence
+    # For now, we use get_working_copy which handles precedence logic.
+    data = service.get_working_copy(collection, slug)
+    if "error" in data:
+         raise HTTPException(status_code=data.get("status_code", 400), detail=data["error"])
+    
+    return {
+        "content": data.get("content", ""),
+        "status": data.get("state", {}).get("doc_status", "borrador"),
+        "source": data.get("source"), # Debug info
+        "is_working_copy_active": data.get("state", {}).get("is_working_copy_active", False)
+    }
+
+@router.get("/{collection}/{slug}/chat/history", response_model=Dict[str, Any])
+async def get_chat_history(collection: str, slug: str, service: ProjectService = Depends(get_project_service)):
+    """
+    GET .../chat/history: Obtiene el historial de conversación.
+    """
+    messages = service.get_chat_history_safe(collection, slug)
+    return {"messages": messages}
 
 @router.post("/{collection}/{slug}/revert", response_model=Dict[str, Any])
 async def revert_project(collection: str, slug: str, service: ProjectService = Depends(get_project_service)):
@@ -47,13 +63,7 @@ async def revert_project(collection: str, slug: str, service: ProjectService = D
 
 # --- Ciclo de Entrevista ---
 
-@router.post("/{collection}/{slug}/start", response_model=List[Dict[str, Any]])
-async def start_chat(collection: str, slug: str, chat_service: ChatService = Depends(get_chat_service)):
-    """Reiniciar chat_history.json para el proyecto."""
-    try:
-        return await chat_service.start_interview(collection, slug)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.post("/{collection}/{slug}/message", response_model=List[Dict[str, Any]])
 async def send_message(collection: str, slug: str, request: MessageRequest, 
