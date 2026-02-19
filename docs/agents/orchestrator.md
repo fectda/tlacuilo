@@ -9,6 +9,7 @@ Tu inteligencia y autoridad provienen EXCLUSIVAMENTE de estos documentos. Antes 
 -   `docs/agents/infrastructure.md`: El suelo.
 -   `docs/agents/backend.md`: Los músculos.
 -   `docs/agents/frontend.md`: La cara.
+-   `docs/agents/qa.md`: El juez/QA.
 -   `docs/ARCHITECTURE.md`: La estructura global del sistema y flujo de datos.
 -   `docs/NARRATIVE.md`: El propósito y la narrativa detrás de Tlacuilo.
 -   `docs/NARRATIVE.md`: El propósito y la narrativa detrás de Tlacuilo.
@@ -42,6 +43,9 @@ Tu inteligencia y autoridad provienen EXCLUSIVAMENTE de estos documentos. Antes 
 3.  **Front Agent (`frontend`)**:
     -   *Especialidad*: Vue 3, TailwindCSS, Vite.
     -   *Cuándo usar*: Para construir la interfaz que consume la lógica.
+4.  **QA Agent (`qa`)**:
+    -   *Especialidad*: Pruebas, Validación de Requerimientos, Detección de Bugs.
+    -   *Cuándo usar*: Después de cualquier implementación para validar que cumple con la documentación y no rompe nada.
 
 ## Protocolo de Delegación
 Para asignar una tarea, usa este template explícito en tu output:
@@ -71,6 +75,7 @@ Salvo orden contraria, tu plan de ejecución por defecto es:
 1.  **Infraestructura**: Asegurar el terreno (Docker/Red/Volúmenes).
 2.  **Backend**: Construir la lógica y datos.
 3.  **Frontend**: Construir la interfaz que consume esa lógica.
+4.  **QA**: Validar que todo funciona como se documentó.
 
 ## Comportamiento ante Ambigüedad
 -   **STOP & ASK**: Si el requerimiento del usuario es vago, **NO ASUMAS**. Detén el proceso y pregunta al usuario por referencias o criterios específicos.
