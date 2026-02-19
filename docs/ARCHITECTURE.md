@@ -108,7 +108,7 @@ El frontend debe llamar a estos dos endpoints en paralelo al cargar un proyecto.
     -   **Respuesta**: `{ "content": "...", "status": "draft|published" }`.
 -   `GET /api/{collection}/{slug}/chat/history`: Obtiene el historial de conversación.
     -   **Responsabilidad**: Devolver la lista de mensajes VISIBLES del `chat_history.json`. Filtra y oculta los mensajes con `system_only: true`.
-    -   **Respuesta**: `{ "messages": [...] }`. Si está vacío o corrupto, devuelve `[]`.
+    -   **Respuesta**: `{ "messages": [...] }`. Si está vacío o corrupto, devuelve `{ "messages": [] }`.
 -   `POST /api/{collection}/{slug}/revert`: **Abortar/Retomar Original**.
     -   **Responsabilidad**: Descartar el borrador local actual y restaurar la versión del Portafolio.
     -   **Efecto**: Sobreescribe el `{slug}.md` local con el oficial, apaga el validador (`is_working_copy_active: false`). Mantiene el historial de chat.
@@ -125,18 +125,37 @@ El frontend debe llamar a estos dos endpoints en paralelo al cargar un proyecto.
         -   **Si NO se genera Mensaje**: Retorna HTTP 204 No Content.
 -   `POST /api/{collection}/{slug}/message`: **Mensajería Transaccional (Context-Aware)**.
     -   **Responsabilidad**: Recibir un mensaje, persistirlo, obtener respuesta de la IA (Llama/Mistral) y persistir respuesta.
-    -   **Input**: `{ "content": "Texto...", "system_only": true|false (opcional) }`.
+    -   **Input**: `{ "content": "Texto...", "system_only": true|false (opcional), "response_system_only": true|false (opcional) }`.
     -   **Validación**:
         1.  **Existencia**: El objeto no puede ser nulo.
         2.  **`content`**: String NO vacío. No admite espacios en blanco (" ").
-        3.  **`system_only`**: Booleano opcional. Persistido pero oculto en el GET.
+        3.  **`system_only`**: Booleano opcional. Marca el mensaje de entrada como oculto.
+        4.  **`response_system_only`**: Booleano opcional. Indica si la respuesta de la IA debe guardarse también como oculta.
     -   **Proceso Interno (Sanitización)**: Antes de enviar a Ollama, el servicio limpia el historial y construye una lista que contiene ÚNICAMENTE `role` y `content`, eliminando cualquier metadato interno (`timestamp`, `system_only`, etc.).
     -   **Output (Respuesta Exitosa)**: Objeto JSON estándar: `{ "role": "assistant", "content": "Respuesta IA...", "timestamp": "ISO-8601" }`.
     -   **Output (Respuesta Fallida - Error General)**:
         -   **Http Code**: 500/503.
         -   **Efecto**: Si falla CUALQUIER paso tras guardar el mensaje del usuario (IA, IO, Formato), se aborta. El mensaje del usuario persiste, pero el del asistente **NO** se genera. NUNCA se guarda basura.
 
--   `POST /api/{collection}/{slug}/draft`: El agente propone actualizaciones. **No persistente** (no toca el archivo hasta ser autorizado).
+
+-   `POST /api/{collection}/{slug}/draft`: **Generación de Borrador (Propuesta)**.
+    -   **Responsabilidad**: Analizar la conversación reciente y generar un documento Markdown completo y consolidado. **NO guarda en disco local todavía**. Devuelve el contenido para revisión visual (Diff).
+    -   **Input**: `{}` (Vacío). Usa el estado del servidor.
+    -   **Validación**: Nula.
+    -   **Proceso Interno**:
+        1.  **Recuperación de Contexto**:
+            -   Obtiene el MD actual siguiendo las mismas reglas de precedencia que `GET /api/{collection}/{slug}/content`.
+            -   Carga el **Template** estructural del documento.
+            -   Carga el **System Prompt Template** específico para generación de borrador (instrucciones de forzado de formato MD).
+        2.  **Construcción de Prompt**: Crea un mensaje de sistema instruyendo "Genera solo MD final...".
+        3.  **Delegación a `/message`**: Llama internamente a `/message` con:
+            -   `content`: El prompt construido.
+            -   `system_only`: true (Prompt oculto).
+            -   `response_system_only`: true (Respuesta MD oculta en chat history).
+        4.  **Sanitización**: Limpia bloques de código (```markdown) de la respuesta obtenida.
+    -   **Contrato de Respuesta (Output)**:
+        -   **Exitosa (200)**: `{ "content": "# Nuevo MD...", "status": "draft" }`. (Formato compatible con `GET /content`).
+        -   **Fallida (500/503)**: Error en generación.
 
 **C. Validación y Persistencia**
 -   `POST /api/{collection}/{slug}/persist`: Autorización manual para guardar la propuesta del agente en el `{slug}.md` local.
