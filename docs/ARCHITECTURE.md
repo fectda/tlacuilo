@@ -157,11 +157,30 @@ El frontend debe llamar a estos dos endpoints en paralelo al cargar un proyecto.
         -   **Exitosa (200)**: `{ "content": "# Nuevo MD...", "status": "draft" }`. (Formato compatible con `GET /content`).
         -   **Fallida (500/503)**: Error en generación.
 
-**C. Validación y Persistencia**
--   `POST /api/{collection}/{slug}/persist`: Autorización manual para guardar la propuesta del agente en el `{slug}.md` local.
--   `PUT /api/{collection}/{slug}`: Guardado manual del usuario. Dispara:
-    1. **Schema Check**: Validación estructural contra templates.
-    2. **Spellcheck**: Revisión de ortografía.
+**C. Validación y Persistencia (Manual)**
+-   `POST /api/{collection}/{slug}/persist`: **Autorización de Cambios (Persistencia)**.
+    -   **Responsabilidad**: Validar el contenido (contra plantilla) y SOBREESCRIBIR el archivo `{slug}.md` físico (Copia de Trabajo), activando obligatoriamente el estado de sesión.
+    -   **Input**: `{ "content": "# Markdown Nuevo..." }`.
+    -   **Validación**:
+        1.  **Integridad Estructural**: El contenido DEBE cumplir con la estructura/plantilla definida para la colección (Headers, Frontmatter, Secciones obligatorias). Si falla, rechaza.
+        2.  **Contenido**: No vacío.
+    -   **Proceso Interno**:
+        1.  Identificar la ruta física del archivo `{slug}.md` en la carpeta de trabajo.
+        2.  Escribir el contenido (Sobreescritura total).
+        3.  Establecer la bandera `is_working_copy_active = true`.
+    -   **Contrato de Respuesta (Output)**:
+        -   **Exitosa (200)**: Cuerpo vacío.
+        -   **Fallida (400)**: Error de validación estructural.
+        -   **Fallida (500)**: Error de escritura en disco. 
+
+-   `PUT /api/{collection}/{slug}`: **Guardado Manual (Usuario)**.
+    -   **Responsabilidad**: 
+    -   **Input**: 
+    -   **Validación**:
+    -   **Proceso Interno**:
+    -   **Contrato de Respuesta (Output)**:
+        -   **Exitosa (200)**: 
+        -   **Fallida**: 
 
 **D. Publicación y Localización (English Flow)**
 -   `POST /api/{collection}/{slug}/publish`: **Promoción al Portafolio**. Mueve la Copia de Trabajo validada a la carpeta oficial y apaga el flag de sesión activa.
