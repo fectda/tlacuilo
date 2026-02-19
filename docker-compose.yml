@@ -13,7 +13,7 @@ services:
     volumes:
       - ./backend:/home/tlacuilo/app
       - ./projects:/home/tlacuilo/projects
-      - ${PORTAFOLIO_PATH}:/home/tlacuilo/portfolio
+      - ${PORTAFOLIO_PATH:-./portfolio}:/home/tlacuilo/portfolio
       - ./prompts:/app/prompts:ro
     env_file:
       - .env
@@ -41,6 +41,8 @@ services:
       - /app/node_modules
     env_file:
       - .env
+    environment:
+      - PORTAFOLIO_PATH=${PORTAFOLIO_PATH:-./portfolio}
     restart: unless-stopped
     depends_on:
       - backend

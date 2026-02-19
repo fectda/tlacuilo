@@ -1,8 +1,16 @@
 #!/bin/bash
 
-# Load .env if it exists
+# Load .env if it exists, skipping read-only variables
 if [ -f .env ]; then
-  export $(grep -v '^#' .env | xargs)
+  while IFS= read -r line || [ -n "$line" ]; do
+    [[ "$line" =~ ^#.*$ ]] && continue
+    [[ "$line" =~ ^[[:space:]]*$ ]] && continue
+    key=$(echo "$line" | cut -d '=' -f 1)
+    # Check if variable is read-only in bash
+    if ! readonly -p | grep -qE "declare -[a-z]*r[a-z]* $key="; then
+      export "$line"
+    fi
+  done < .env
 else
   echo "Error: .env file not found. Please copy .env.example to .env and configure it."
   exit 1
@@ -30,4 +38,7 @@ curl -s --connect-timeout 2 $COMFYUI_HOST > /dev/null || echo "Warning: ComfyUI 
 curl -s --connect-timeout 2 $OLLAMA_HOST > /dev/null || echo "Warning: Ollama ($OLLAMA_HOST) not reachable."
 
 echo "Starting Tlacuilo environment..."
-docker compose up --build
+docker compose up -d --build
+
+echo "Services started in detached mode."
+echo "Use 'docker compose logs -f' to view output."
