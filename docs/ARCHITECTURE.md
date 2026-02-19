@@ -173,7 +173,26 @@ El frontend debe llamar a estos dos endpoints en paralelo al cargar un proyecto.
         -   **Fallida (400)**: Error de validación estructural.
         -   **Fallida (500)**: Error de escritura en disco. 
 
--   `PUT /api/{collection}/{slug}`: **Guardado Manual (Usuario)**.
+ 
+
+**D. Publicación y Localización (English Flow)**
+-   `POST /api/{collection}/{slug}/promote`: **Promoción al Portafolio (Finalización)**.
+    -   **Responsabilidad**: Validar estrictamente la Copia de Trabajo, marcarla como `published` en el estatus del la documetnacin no en el cuerpo del md, MOVERLA al Portafolio Oficial (sobreescribiendo) y detonar la traducción automática.
+    -   **Input**: `{}`.
+    -   **Validación**:
+        1.  **Schema Check Estricto**: Debe tener Frontmatter completo. Si falta algo, rechaza (400).
+        2.  **Existencia**: Debe haber una Copia de Trabajo activa.
+    -   **Proceso Interno**:
+        1.  Leer `working_copy/{slug}.md`.
+        2.  Actualizar Frontmatter: `status: published`.
+        3.  **IO**: Mover/Copiar a `PORTFOLIO_PATH/{collection}/es/{slug}.md`.
+        4.  **Trigger (Background)**: Iniciar generación de traducción.
+    -   **Contrato de Respuesta (Output)**:
+        -   **Exitosa (200)**: Cuerpo vacío.
+        -   **Fallida (400)**: Error de validación estructural.
+        -   **Fallida (500)**: Error de escritura o movimiento de archivo. 
+
+-   `POST /api/{collection}/{slug}/translate`: **Inicia Localización**.
     -   **Responsabilidad**: 
     -   **Input**: 
     -   **Validación**:

@@ -77,6 +77,7 @@ Donde se crea el texto. El corazón de la Fase de Entrevista.
         -   Render en tiempo real del archivo `.md` actual.
         -   Debe refrescarse cuando el usuario gatilla la acción "Generar Borrador".
         -   Sticky header con el botón "Save to Disk".
+        -   **Spellcheck**: Responsabilidad exclusiva del Frontend. Debe mostrar errores ortográficos visualmente antes de permitir el guardado.
 -   **Acciones**:
     -   `[input] Send Message`: Envía payload con `mode: interview` (por defecto) o `mode: free_chat` (si el usuario activa un toggle).
     -   `[primary] Generate Draft`: Solicita al GEM escribir el bloque. (Habilitado solo cuando el agente indica que tiene suficiente info).
