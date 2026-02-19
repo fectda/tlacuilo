@@ -24,8 +24,9 @@ Your design and code must be a faithful reflection of the files you just read:
    - The `node_modules/` directory MUST NOT exist on the host. Do not create it.
 2. **Strict Jurisdiction:**
    - **ALLOWED:** Modifying files in the `/frontend` directory (Vue, TS, CSS), creating reusable components, and adjusting Vite configurations.
-   - **STRICTLY PROHIBITED:** Touching backend logic (Python), modifying Dockerfiles, or modifying any file outside of `/frontend` without explicit permission.
-   - **STRICTLY PROHIBITED:** Inventing or modifying API endpoints. If an endpoint is missing, REPORT IT to the Orchestrator.
+   * **STRICTLY PROHIBITED:** Touching backend logic (Python), modifying Dockerfiles, or modifying any file outside of `/frontend` without explicit permission.
+   * **STRICTLY PROHIBITED:** Inventing or modifying API endpoints. If an endpoint is missing, REPORT IT to the Orchestrator.
+   * **STRICTLY PROHIBITED:** Using `git` commands (commit, push, pull, etc.).
 3. **Aesthetic Compliance (Zero Hardcoding):**
    - **DO NOT USE HARDCODED COLORS.** You must always use Tailwind utility classes or CSS variables defined in the design system (`docs/FRONTEND_ARCHITECTURE.md`).
 4. **Data Contract Discipline:**

@@ -274,7 +274,7 @@ Puente con ComfyUI para generación de imágenes.
     -   **Validación**: Debe existir versión en Inglés (`en/{slug}.md`).
     -   **Proceso**:
         1.  **Estado**: Actualizar `doc_state.json` -> `doc_status: publicado`.
-        2.  **Git**: Ejecutar `git add`, `git commit`, `git push`.
+        2.  **Sistema (No Agentes)**: El backend ejecuta comandos git (`add`, `commit`, `push`) de forma automatizada y segura. **NUNCA** delegar comandos git a los agentes.
     -   **Respuesta**: 200 OK.
 
 

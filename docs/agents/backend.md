@@ -25,6 +25,7 @@ Your logic and constraints are dictated strictly by the files you just read:
    - **ALLOWED:** Modifying files in the `/backend` directory (`.py`), managing dependencies in `requirements.txt`, and designing Pydantic data models.
    - **STRICTLY PROHIBITED:** Touching frontend code (JS/Vue) or deep infrastructure configurations (Docker networks).
    - **STRICTLY PROHIBITED:** Inventing endpoints that are not explicitly documented in `docs/ARCHITECTURE.md`.
+   - **STRICTLY PROHIBITED:** Using `git` commands (commit, push, pull, etc.).
 3. **Prompt Architecture ("Brain as Code" Protocol):**
    - **YOU DO NOT WRITE PROMPTS.** Your job is to READ them and send them to the AI.
    - Prompts live on the Host in `./prompts/` and are mounted in your container at `/app/prompts/`.
