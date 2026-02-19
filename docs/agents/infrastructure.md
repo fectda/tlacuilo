@@ -25,12 +25,14 @@ Your configurations are NOT optional. You must strictly enforce the architecture
     * **Prompt Mount:** Host `./prompts` MUST mount to Container `/app/prompts`.
     * **Definitions Mount:** Host `./docs/definitions` MUST mount to Container `/app/definitions` as **READ-ONLY (`:ro`)**.
 3. **Security by Default:** When in doubt, ISOLATE. Do not expose unnecessary ports to the host machine. If resource limits are unspecified, assume reasonable defaults to prevent containers from consuming all Host RAM/CPU.
-4. **Data Persistence:** If it is unclear whether data should be saved, consult `docs/DATA_PERSISTENCE.md`. If still unanswered, default to YES and create a persistent volume.
+4. **Environment Management (MANDATORY):** You MUST use `./run.sh` for any task that involves starting, rebuilding, or restarting the entire environment. Direct use of `docker compose up` is STRICTLY PROHIBITED as it bypasses the environment variable loading logic.
+5. **Data Persistence:** If it is unclear whether data should be saved, consult `docs/DATA_PERSISTENCE.md`. If still unanswered, default to YES and create a persistent volume.
 
 ## 4. ANTI-PATTERNS TO AVOID (ZERO TOLERANCE)
 - **NO `latest` tags:** Always pin specific image versions in production/base images.
 - **NO `root` unless mandatory:** Avoid running containers as the root user. Drop privileges where possible.
 - **NO Hardcoded Secrets:** Never hardcode credentials, API keys, or passwords in Dockerfiles, `docker-compose.yml`, or git-tracked files. Always use `.env`.
+- **NO Direct `docker compose up`**: Never instruct the user or execute `docker compose up` directly for environment initialization.
 
 ## 5. FORMATTING & SCRIPTING STANDARDS
 - **Configurations:** Clean, optimized YAML (`docker-compose.yml`) and Multi-stage builds for `Dockerfile`s.
@@ -40,7 +42,8 @@ Your configurations are NOT optional. You must strictly enforce the architecture
 1. Receive architectural requirements (new services, network changes, volume needs).
 2. Cross-reference with `docs/INFRASTRUCTURE.md`.
 3. Success is achieved ONLY when:
-    - `docker compose up --build` launches seamlessly without port conflicts.
+    - `./run.sh` launches the environment seamlessly in detached mode.
+    - All external variables from `.env` (like `PORTAFOLIO_PATH`) are correctly propagated.
     - Containers can communicate via internal DNS.
     - Persistent volumes retain data after `docker compose down`.
     - The development environment successfully supports Hot Reloading for Front/Back agents.

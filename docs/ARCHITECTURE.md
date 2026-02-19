@@ -305,4 +305,17 @@ Para la implementación técnica de este sistema, se definen dos roles de lidera
 - **Arquitecto**: Define el "cómo" técnico, diseña los prompts y asegura la coherencia con esta arquitectura.
 - **Orquestador**: Gestiona el "cuándo" y el "quién", delegando tareas y validando resultados.
 
+## 6. Gestión del Entorno (Infraestructura)
+
+Para garantizar la estabilidad del sistema y la correcta carga de configuraciones, se ha establecido un protocolo estricto de ejecución:
+
+### El Script de Entrada (`./run.sh`)
+El archivo `./run.sh` en la raíz del proyecto es el **único** punto de entrada autorizado para iniciar o reiniciar el entorno de Tlacuilo.
+
+- **Responsabilidades del Script**:
+    1. Cargar variables de entorno desde el archivo `.env` (saltando variables protegidas del sistema).
+    2. Validar que la ruta del portafolio (`PORTAFOLIO_PATH`) sea válida.
+    3. Iniciar todos los contenedores en modo **Detached** (`-d`).
+- **Regla de Oro para Agentes**: NUNCA ejecutar `docker compose up` directamente. Cualquier cambio en la infraestructura, volúmenes o variables de entorno **DEBE** ir seguido de una ejecución de `./run.sh`.
+
 *Este documento centraliza toda la información de arquitectura y servicios de Tlacuilo.*
