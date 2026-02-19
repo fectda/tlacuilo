@@ -38,7 +38,8 @@ curl -s --connect-timeout 2 $COMFYUI_HOST > /dev/null || echo "Warning: ComfyUI 
 curl -s --connect-timeout 2 $OLLAMA_HOST > /dev/null || echo "Warning: Ollama ($OLLAMA_HOST) not reachable."
 
 echo "Starting Tlacuilo environment..."
-docker compose up -d --build
+# --force-recreate ensures stale volume mounts (from host directory deletion/recreation) are fixed
+docker compose up -d --build --force-recreate
 
 echo "Services started in detached mode."
 echo "Use 'docker compose logs -f' to view output."
