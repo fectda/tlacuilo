@@ -177,7 +177,7 @@ El frontend debe llamar a estos dos endpoints en paralelo al cargar un proyecto.
 
 
 -   `POST /api/{collection}/{slug}/promote`: **Promoción al Portafolio (Finalización)**.
-    -   **Responsabilidad**: Validar estrictamente la Copia de Trabajo, marcarla como `promovido` en el estatus del la documetnacin no en el cuerpo del md, MOVERLA al Portafolio Oficial (sobreescribiendo).
+    -   **Responsabilidad**: Validar estrictamente la Copia de Trabajo, marcarla como `promovido`, MOVERLA al Portafolio. **La orquestación de la Traducción es responsabilidad del Cliente (Frontend) tras recibir el 200 OK**.
     -   **Input**: `{}`.
     -   **Validación**:
         1.  **Schema Check Estricto**: Debe tener Frontmatter completo. Si falta algo, rechaza (400).
@@ -205,34 +205,65 @@ El frontend debe llamar a estos dos endpoints en paralelo al cargar un proyecto.
         4.  **Sincronización Pasiva**: Si existe en ambos y el status de la documentacion no es `promovido` -> Actualiza Local desde Portafolio.
     -   **Respuesta**: `{ "content": "..." }`. 
 
--   `POST /api/{collection}/{slug}/translate`: **Inicia Localización**.
-    -   **Responsabilidad**: 
-    -   **Input**: 
+-   `POST /api/{collection}/{slug}/translate/draft`: **Refinamiento Interactivo (Inglés)**.
+    -   **Responsabilidad**: Generar o Refinar el borrador en Inglés basándose en instrucciones. **Stateless (Sin historial)**.
+    -   **Input**: `{ "instructions": "Cambia el tono a formal..." }`.
+    -   **Contexto**: Lee `es/{slug}.md` (Fuente) y `en/{slug}.md` (Actual).
+    -   **Proceso**:
+        1.  Cargar **System Prompt de Traducción** (Especializado en preservar formato).
+        2.  Construir Prompt con: Instrucción Usuario + MD Español + MD Inglés Actual.
+        3.  Llamada a LLM (Ollama).
+    -   **Output**: Retorna el contenido generado `{ "content": "..." }` para preview. NO guarda en disco. 
+
+-   `POST /api/{collection}/{slug}/translate/persist`: **Guardado Manual (Inglés)**.
+    -   **Responsabilidad**: Guardar cambios en el archivo de inglés.
+    -   **Input**: `{ "content": "..." }`.
     -   **Validación**:
-    -   **Proceso Interno**:
-    -   **Contrato de Respuesta (Output)**:
-        -   **Exitosa (200)**: 
-        -   **Fallida**: 
+        1.  **Integridad Estructural**: Debe respetar el Frontmatter y la estructura del documento.
+        2.  **Contenido**: No vacío.
+    -   **Proceso**:
+        1.  Escribir/Sobreescribir `PORTFOLIO_PATH/{collection}/en/{slug}.md`.
+        2.  **Estado**: Actualizar `projects/{collection}/{slug}/doc_state.json` -> `doc_status: traducción`.
+    -   **Respuesta**: 200 OK.
 
-**D. Publicación y Localización (English Flow)**
--   `POST /api/{collection}/{slug}/publish`: **Promoción al Portafolio**. Mueve la Copia de Trabajo validada a la carpeta oficial y apaga el flag de sesión activa.
--   `POST /api/{collection}/{slug}/translate`: **Inicia Localización**. El agente genera una propuesta de traducción al inglés basada en el MD publicado en el portafolio.
--   `GET /api/{collection}/{slug}/translate`: Lee la versión actual de la Copia de Trabajo en inglés (`{slug}.en.md`).
--   `POST /api/{collection}/{slug}/translate/refine`: **Refinamiento Interactivo**. Chat con el agente para corregir términos técnicos, cambiar el tono o regenerar secciones de la traducción.
--   `PUT /api/{collection}/{slug}/translate`: **Edición Manual**. El usuario modifica directamente el archivo de inglés y guarda cambios.
--   `POST /api/{collection}/{slug}/publish-en`: **Finalizar Localización**. Envía la versión en inglés validada al Portafolio (ej: `{slug}.en.md`).
+**E. Servicio de Tlacuilo Ixtli (`/studio`)**
+Puente con ComfyUI para generación de imágenes.
 
-### C. Servicio de Tlacuilo Ixtli (`/studio`)
-Puente con ComfyUI.
--   `POST /studio/upload`: Recibe la imagen "dirty" de referencia.
--   `POST /studio/generate`: Envía el workflow JSON a ComfyUI con la imagen y parámetros.
--   `GET /studio/status/{prompt_id}`: Consulta el estado de la generación en ComfyUI.
--   `POST /studio/save`: Mueve la imagen generada de `output/` a la carpeta `public/` del proyecto.
+-   `POST /api/studio/generate`: **Generar Imagen**.
+    -   **Responsabilidad**: Encolar un workflow en ComfyUI.
+    -   **Input**: `{ "prompt": "...", "base_image": "base64..." (opcional), "workflow_id": "txt2img|img2img" }`.
+    -   **Proceso**:
+        1.  Seleccionar workflow template.
+        2.  Inyectar prompt y semillas.
+        3.  Llamar a ComfyUI API (`POST /prompt`).
+    -   **Respuesta**: `{ "prompt_id": "comfy-uuid" }`.
 
-### D. Servicio de Git (`/ops`)
-Automatización de versionado.
--   `POST /ops/commit`: Realiza `git add .` y `git commit -m "update: {project}"`.
--   `POST /ops/push`: Empuja los cambios al remoto.
+-   `GET /api/studio/history/{prompt_id}`: **Consultar Estado**.
+    -   **Responsabilidad**: Polling del estado de la generación.
+    -   **Proceso**: Consultar ComfyUI history.
+    -   **Respuesta**: 
+        -   **Pendiente**: `{ "status": "running" }`.
+        -   **Listo**: `{ "status": "completed", "url": "http://comfyui:8188/view?filename=..." }`.
+
+-   `POST /api/{collection}/{slug}/studio/save`: **Guardar Imagen**.
+    -   **Responsabilidad**: Descargar la imagen de ComfyUI y guardarla en la carpeta del proyecto.
+    -   **Input**: `{ "image_url": "...", "filename": "cover.png" }`.
+    -   **Proceso**:
+        1.  Descargar stream desde `image_url`.
+        2.  Guardar en `projects/{collection}/{slug}/public/assets/{filename}`.
+    -   **Respuesta**: `{ "local_path": "/assets/{filename}" }`.
+
+**F. Publicación Global (Git Ops)**
+-   `POST /api/{collection}/{slug}/publish`: **Publicación Final**.
+    -   **Responsabilidad**: Marcar el proyecto como COMPLETADO y sincronizar con el repositorio remoto.
+    -   **Input**: `{}`.
+    -   **Validación**: Debe existir versión en Inglés (`en/{slug}.md`).
+    -   **Proceso**:
+        1.  **Estado**: Actualizar `doc_state.json` -> `doc_status: publicado`.
+        2.  **Git**: Ejecutar `git add`, `git commit`, `git push`.
+    -   **Respuesta**: 200 OK.
+
+
 
 ## 4. Protocolos de Sincronización y Alineación
 
