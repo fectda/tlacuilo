@@ -53,32 +53,53 @@ Dentro de cada proyecto existe el archivo principal `.md` cuyo nombre es igual a
 
 ### A. Servicio de Proyectos (`/projects`)
 Gestiona la lectura y escritura en el sistema de archivos (Portafolio y Local).
--   `GET /projects`: Lista todos los proyectos. Ejecuta el **Ciclo de Descubrimiento** (Alineación Portafolio <-> Local).
-    -   El frontend recibe los proyectos agrupados por colección con esta estructura (Contrato API):
-    ```json
-    {
-      "atoms": [
+-   `GET /api/projects`: **Listar Proyectos (Discovery Cycle)**
+    -   **Responsabilidad**: Escanear el Portafolio y la Memoria Local para identificar proyectos y sincronizar estados iniciales.
+    -   **Input**: N/A.
+    -   **Validation**: Verifica la legibilidad de `PORTAFOLIO_PATH` y la carpeta `projects/` local.
+    -   **Internal Process (Discovery Cycle)**:
+        1.  Lista directorios en `{PORTAFOLIO}/{coleccion}/es/`.
+        2.  Lista directorios en `projects/{coleccion}/`.
+        3.  Cruza ambas listas. Si un proyecto está en Portafolio pero no en Local, dispara la **Hidratación** (Crea memoria local mínima).
+    -   **Response Contract (200)**:
+        ```json
         {
-          "id": "slug-identificador",
-          "name": "Título del Proyecto",
-          "description": "Breve resumen del frontmatter",
-          "doc_status": "revisión",
-          "published": false,
-          "type": "atoms"
+          "atoms": [
+            {
+              "id": "slug-identificador",
+              "name": "Título del Proyecto",
+              "description": "Breve resumen del frontmatter",
+              "doc_status": "revisión",
+              "published": false,
+              "type": "atoms",
+              "missing_files": false
+            }
+          ],
+          "bits": [],
+          "mind": []
         }
-      ],
-      "bits": [],
-      "mind": []
-    }
-    ```
+        ```
 -   `POST /projects`: Crea un nuevo proyecto.
     -   **Payload**: `{ "name": "Título", "collection": "atoms|bits|mind", "slug": "opcional-slug" }`.
     -   **Reglas de Validación (MANDATORIAS)**:
         1. El `slug` se genera desde el `name` si no se provee. Kebab-case.
-        2. **Unicidad Externa**: No debe existir la carpeta en el Portafolio.
-        3. **Unicidad Interna**: No debe existir la carpeta en `projects/` local.
--   `POST /api/{collection}/{slug}/forget`: **Forget Action**. Elimina permanentemente la memoria local (carpeta en `projects/`).
--   `POST /api/{collection}/{slug}/resurrect`: **Resurrect Action**. Restaura el archivo arquitectónico (`{slug}.md`) desde la memoria local hacia el portafolio.
+        2. **Unicidad Externa**: No debe existir la carpeta en el Portafolio `{PORTAFOLIO}/{coleccion}/es/`.
+        3. **Unicidad Interna**: No debe existir la carpeta en `projects/{collection}/` local.
+-   `POST /api/{collection}/{slug}/forget`: **Forget Action (Borrado de Memoria)**
+    -   **Responsabilidad**: Eliminar permanentemente la carpeta de memoria local del proyecto. **NO toca el Portafolio**.
+    -   **Input**: `{}`.
+    -   **Validation**: El proyecto debe existir en la memoria local (`projects/`).
+    -   **Internal Process**: Borrado recursivo de `projects/{collection}/{slug}/`.
+    -   **Response Contract (200)**: Cuerpo vacío.
+
+-   `POST /api/{collection}/{slug}/resurrect`: **Resurrect Action (Rescate de Archivo)**
+    -   **Responsabilidad**: Restaurar el archivo principal `{slug}.md` desde la memoria local hacia el Portafolio  si este desapareció.
+    -   **Input**: `{}`.
+    -   **Validation**: 
+        1. Debe existir el archivo `{slug}.md` en la memoria local.
+        2. NO debe existir el archivo en el Portafolio (para evitar sobreescritura accidental).
+    -   **Internal Process**: Copia el archivo MD de la carpeta local a la ruta correspondiente `{PORTAFOLIO}/{coleccion}/es/` en el Portafolio.
+    -   **Response Contract (200)**: Cuerpo vacío.
 
 ### B. Servicio de Tlacuilo Digital (Contenido y Chat)
 Orquesta el **Ciclo de Entrevista** y la gestión de la **Working Copy** (Copia de Trabajo).
@@ -98,20 +119,48 @@ Todas las rutas operan bajo el prefijo `/api`.
 **A. Sincronización de Contexto**
 El frontend debe llamar a estos dos endpoints en paralelo al cargar un proyecto. NUNCA tienen efectos secundarios (no reparan, no escriben, no crean).
 
--   `GET /api/{collection}/{slug}/content`: Obtiene el contenido del documento aplicando Reglas de Negocio.
-    -   **Responsabilidad**: Devolver el texto del archivo `.md` y su estado.
+-   `GET /api/{collection}/{slug}/content`: **Obtener Contenido del Documento**
+    -   **Responsabilidad**: Devolver el contenido del archivo `.md` y su estado de sincronización actual.
     -   **Lógica de Selección (El Validador)**:
-        1.  **Vacío (Proyecto Nuevo)**: Si no existe en ningún lado -> Devuelve Plantilla Base.
-        2.  **Semilla (Hidratación)**: Si Portafolio existe pero Local no -> Copia Portafolio a Local y devuelve contenido.
-        3.  **Sesión Activa (`is_working_copy_active: true`)**: Si hay trabajo en curso -> Devuelve Local (Ignora Portafolio).
-        4.  **Sincronización Pasiva (`is_working_copy_active: false`)**: Si existe en ambos y no hay sesión -> Actualiza Local desde Portafolio y devuelve contenido. Estado: `revisión`.
-    -   **Respuesta**: `{ "content": "..." }`.
--   `GET /api/{collection}/{slug}/chat/history`: Obtiene el historial de conversación.
-    -   **Responsabilidad**: Devolver la lista de mensajes VISIBLES del `chat_history.json`. Filtra y oculta los mensajes con `system_only: true`.
-    -   **Respuesta**: `{ "messages": [...] }`. Si está vacío o corrupto, devuelve `{ "messages": [] }`.
--   `POST /api/{collection}/{slug}/revert`: **Abortar/Retomar Original**.
-    -   **Responsabilidad**: Descartar el borrador local actual y restaurar la versión del Portafolio.
-    -   **Efecto**: Sobreescribe el `{slug}.md` local con el oficial, apaga el validador (`is_working_copy_active: false`). Mantiene el historial de chat. Regresa el estado a `revisión`.
+        1.  **Vacío (Proyecto Nuevo)**: Si no existe en Portafolio ni en Local -> Retorna Plantilla Base de la colección.
+        2.  **Semilla (Hidratación)**: Si Portafolio existe pero Local no -> Copia automáticamente el archivo del Portafolio a la Memoria Local e inicializa `doc_state.json`.
+        3.  **Sesión Activa (`is_working_copy_active: true`)**: Si hay un proceso de edición o chat en curso -> Devuelve exclusivamente la copia local. **Ignora cambios externos en el Portafolio** para evitar colisiones durante la entrevista.
+        4.  **Sincronización Pasiva (`is_working_copy_active: false`)**: Si no hay sesión activa -> Sincroniza Local desde Portafolio (si este es más reciente) y devuelve contenido.
+    -   **Input**: N/A.
+    -   **Validation**: El proyecto debe estar registrado en el sistema. Si no existe en ningún lado, retorna 404.
+    -   **Response Contract (200)**:
+        ```json
+        {
+          "content": "# Título..."
+        }
+        ```
+
+-   `GET /api/{collection}/{slug}/chat/history`: **Obtener Historial de Chat**
+    -   **Responsabilidad**: Recuperar la bitácora de mensajes de la memoria local, filtrando información puramente técnica.
+    -   **Input**: N/A.
+    -   **Validation**: Busca `chat_history.json` en la ruta correspondiente. Si el archivo no existe, asume historial vacío.
+    -   **Internal Process**: Filtra todos los objetos donde `system_only: true`. Asegura que el array esté ordenado cronológicamente por `timestamp`.
+    -   **Response Contract (200)**:
+        ```json
+        {
+          "messages": [
+            { "role": "user", "content": "...", "timestamp": "..." },
+            { "role": "assistant", "content": "...", "timestamp": "..." }
+          ]
+        }
+        ```
+    -   **Failure (500)**: Si el JSON está corrupto, lo renombra a `.corrupt` y notifica al usuario.
+
+-   `POST /api/{collection}/{slug}/revert`: **Abortar Cambios y Restaurar Original**
+    -   **Responsabilidad**: Descartar la Copia de Trabajo actual y volver a la versión oficial del Portafolio.
+    -   **Efecto**:
+        1.  Sobreescribe el `{slug}.md` local con el contenido actual del Portafolio.
+        2.  Apaga forzosamente `is_working_copy_active` a `false`.
+        3.  Mantiene el historial de chat (para no perder el contexto de por qué se descartó el cambio).
+        4.  Actualiza `doc_status` a `revisión`.
+    -   **Input**: `{}`.
+    -   **Validation**: Debe existir el archivo oficial en el Portafolio. Si no hay original al cual volver, la operación falla (400).
+    -   **Response Contract (200)**: Cuerpo vacío.
 
 **B. Ciclo de Entrevista**
 -   `POST /api/{collection}/{slug}/init`: **Arranque de Sesión (Trigger)**.
