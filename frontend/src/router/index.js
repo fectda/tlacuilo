@@ -11,7 +11,7 @@ const router = createRouter({
             component: CommandCenter
         },
         {
-            path: '/project/:collection/:slug/digital',
+            path: '/project/:collection/:slug',
             name: 'ProjectDigital',
             component: ProjectDigital
         }

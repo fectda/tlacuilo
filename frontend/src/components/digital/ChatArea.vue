@@ -1,125 +1,144 @@
 <script setup>
-import { ref, onMounted, nextTick, watch } from 'vue'
+import { ref, nextTick, watch, onMounted } from 'vue'
 import { useChatStore } from '../../stores/chat'
-import { useRoute } from 'vue-router'
+import { marked } from 'marked'
 
-const props = defineProps(['projectId'])
+const props = defineProps({
+  collection: {
+    type: String,
+    required: true
+  },
+  slug: {
+    type: String,
+    required: true
+  }
+})
+
 const chatStore = useChatStore()
 const messageInput = ref('')
-const chatContainer = ref(null)
+const messagesContainer = ref(null)
 
 const scrollToBottom = async () => {
     await nextTick()
-    if (chatContainer.value) {
-        chatContainer.value.scrollTop = chatContainer.value.scrollHeight
+    if (messagesContainer.value) {
+        messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight
     }
 }
 
-watch(() => chatStore.history.length, scrollToBottom)
+// Watch for new messages to scroll
+watch(() => chatStore.history, () => {
+    scrollToBottom()
+}, { deep: true })
 
-const sendMessage = async () => {
+onMounted(() => {
+    scrollToBottom()
+})
+
+const handleSend = async () => {
     if (!messageInput.value.trim() || chatStore.isTyping) return
     
-    const msg = messageInput.value
+    const text = messageInput.value
     messageInput.value = ''
     
-    await chatStore.sendMessage(props.projectId, msg)
+    await chatStore.sendMessage(props.collection, props.slug, text)
 }
 
-// Auto-resize textarea
-const adjustHeight = (el) => {
-    el.style.height = 'auto'
-    el.style.height = el.scrollHeight + 'px'
+const renderMarkdown = (text) => {
+    return marked(text)
 }
 </script>
 
 <template>
-    <div class="flex flex-col h-full bg-neutral-900 border-r border-white/10">
-        <!-- Chat History -->
-        <div ref="chatContainer" class="flex-1 overflow-y-auto p-6 space-y-6">
-            <div v-if="chatStore.history.length === 0" class="text-center text-neutral-500 mt-10">
-                <p>Iniciando entrevista...</p>
-            </div>
+    <div class="flex flex-col h-full bg-[#050505] text-gray-300 font-mono text-xs relative">
+        <!-- Messages Area -->
+        <div ref="messagesContainer" class="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar pb-32">
+            <template v-if="chatStore.history.length === 0">
+                 <div class="flex flex-col items-center justify-center h-full text-neutral-600 opacity-50">
+                    <span class="mb-2 text-2xl tracking-[0.2em] font-bold">TLACUILO</span>
+                    <p class="text-[10px]">INICIA LA CONVERSACIÓN...</p>
+                 </div>
+            </template>
             
             <div v-for="(msg, index) in chatStore.history" :key="index" 
-                 class="flex flex-col max-w-3xl mx-auto animate-fade-in"
+                 class="flex flex-col gap-1 max-w-2xl mx-auto"
                  :class="msg.role === 'user' ? 'items-end' : 'items-start'">
                 
-                <div class="text-xs text-neutral-500 mb-1 uppercase tracking-wider font-mono">
-                    {{ msg.role === 'user' ? 'Tú' : 'Tlacuilo' }}
-                </div>
+                <span class="text-[9px] uppercase tracking-[0.2em] text-neutral-600 mb-1">
+                    {{ msg.role === 'user' ? '// USUARIO' : '// TLACUILO' }}
+                </span>
                 
-                <div class="p-4 rounded-lg max-w-[90%] text-sm leading-relaxed whitespace-pre-wrap"
-                     :class="msg.role === 'user' ? 'bg-neutral-800 text-white' : 'bg-transparent border border-white/10 text-neutral-200'">
-                    <!-- TODO: Add proper Markdown rendering here -->
-                    {{ msg.content }}
+                <div class="p-4 border max-w-[90%] transition-colors duration-300"
+                     :class="msg.role === 'user' 
+                        ? 'bg-neutral-900 border-neutral-800 text-neutral-300' 
+                        : 'bg-transparent border-neutral-900 text-neutral-400 hover:border-neutral-800'">
+                    <div class="prose prose-invert prose-xs max-w-none leading-relaxed" v-html="renderMarkdown(msg.content)"></div>
                 </div>
             </div>
 
-            <div v-if="chatStore.isTyping" class="flex flex-col items-start max-w-3xl mx-auto">
-                 <div class="text-xs text-neutral-500 mb-1 uppercase tracking-wider font-mono">Tlacuilo</div>
-                 <div class="p-4 rounded-lg bg-transparent border border-white/10 text-neutral-400 italic">
-                     Escribiendo...
-                 </div>
+            <!-- Typing Indicator -->
+             <div v-if="chatStore.isTyping" class="flex flex-col gap-1 max-w-2xl mx-auto items-start animate-pulse">
+                <span class="text-[9px] uppercase tracking-[0.2em] text-neutral-700 mb-1">// TLACUILO</span>
+                <div class="p-4 border border-neutral-900 bg-transparent text-neutral-600">
+                    <span class="text-[9px] tracking-[0.3em]">ESCRIBIENDO...</span>
+                </div>
             </div>
-             <div v-if="chatStore.error" class="text-center text-red-500 text-sm mt-4">
-                {{ chatStore.error }}
+            
+             <!-- Error Message -->
+            <div v-if="chatStore.error" class="max-w-2xl mx-auto mt-4 p-3 border border-red-900/50 bg-red-900/10 text-red-500 text-[10px] text-center tracking-widest uppercase">
+                ERROR: {{ chatStore.error }}
             </div>
         </div>
 
         <!-- Input Area -->
-        <div class="p-6 border-t border-white/10 bg-neutral-900 z-10">
-            <div class="max-w-3xl mx-auto relative">
-                <textarea 
+        <div class="absolute bottom-0 left-0 w-full bg-black/80 backdrop-blur-md border-t border-white/5 p-6 shadow-[0_-10px_20px_rgba(0,0,0,0.5)]">
+            <div class="max-w-2xl mx-auto relative group">
+                <input 
                     v-model="messageInput"
-                    @keydown.enter.exact.prevent="sendMessage"
-                    @input="e => adjustHeight(e.target)"
+                    @keydown.enter="handleSend"
+                    type="text" 
+                    placeholder="COMANDO / MENSAJE..."
+                    class="w-full bg-[#0a0a0a] border border-neutral-900 p-4 pr-12 text-neutral-300 placeholder-neutral-700 focus:outline-none focus:border-white/20 focus:bg-[#0f0f0f] transition-all font-mono text-xs tracking-wider"
                     :disabled="chatStore.isTyping"
-                    placeholder="Escribe tu respuesta..."
-                    class="w-full bg-neutral-800 text-white rounded-lg p-4 pr-12 resize-none focus:outline-none focus:ring-1 focus:ring-amber-500/50 disabled:opacity-50 min-h-[56px] max-h-48 scrollbar-hide"
-                    rows="1"
-                ></textarea>
-                
+                />
                 <button 
-                    @click="sendMessage"
+                    @click="handleSend"
                     :disabled="!messageInput.trim() || chatStore.isTyping"
-                    class="absolute right-3 bottom-3 p-2 text-neutral-400 hover:text-amber-500 disabled:text-neutral-600 transition-colors"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                    class="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-700 hover:text-white disabled:opacity-30 disabled:hover:text-neutral-700 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                    </svg>
                 </button>
             </div>
-            
-            <div class="max-w-3xl mx-auto flex justify-between items-center mt-2">
-                <div class="text-xs text-neutral-600 font-mono">
-                    ENTER para enviar
-                </div>
-                 <div class="flex gap-2">
-                    <button 
-                        @click="chatStore.generateDraft(projectId)"
+             <div class="max-w-2xl mx-auto mt-3 flex justify-between items-center px-1">
+                 <div class="flex items-center gap-3">
+                    <span class="text-[9px] text-neutral-700 uppercase tracking-[0.2em] flex items-center gap-2">
+                        <span class="w-1 h-1 bg-neutral-800 rounded-full animate-pulse"></span>
+                        MODO: {{ chatStore.mode }}
+                    </span>
+                 </div>
+                  <button 
+                        @click="chatStore.generateDraft(collection, slug)"
                         :disabled="chatStore.isTyping"
-                        class="text-xs font-mono px-3 py-1 rounded border border-amber-500/30 text-amber-500 hover:bg-amber-500/10 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+                        class="text-[9px] font-bold px-3 py-1 border border-neutral-800 text-neutral-500 hover:text-neutral-200 hover:border-neutral-600 hover:bg-neutral-900 disabled:opacity-30 disabled:cursor-not-allowed transition-all uppercase tracking-[0.2em]"
                     >
-                        [GENERATE DRAFT]
+                        GENERAR BORRADOR
                     </button>
-                    <!-- RESET MEMORY BUTTON logic not fully implemented in UI but requested in docs -->
-                     <button class="text-xs font-mono px-3 py-1 rounded border border-red-500/30 text-red-500 hover:bg-red-500/10 transition-all opacity-50 hover:opacity-100">
-                        [RESET]
-                    </button>
-                </div>
-            </div>
+             </div>
         </div>
     </div>
 </template>
 
 <style scoped>
-.scrollbar-hide::-webkit-scrollbar {
-    display: none;
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
 }
-.animate-fade-in {
-    animation: fadeIn 0.3s ease-out;
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: #050505;
 }
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #262626;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #404040;
 }
 </style>

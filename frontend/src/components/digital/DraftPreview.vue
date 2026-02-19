@@ -1,48 +1,116 @@
 <script setup>
-import { defineProps } from 'vue'
+import { defineProps, computed } from 'vue'
+import { marked } from 'marked'
+import { useProjectStore } from '../../stores/project'
 
-const props = defineProps(['projectId', 'content'])
+const props = defineProps(['collection', 'slug', 'content', 'isTranslation'])
+const projectStore = useProjectStore()
 
-// Placeholder for content. In a real scenario, we might want to fetch the content 
-// from the ProjectStore or receive it as a prop.
-// For now, we assume parent passes content or we fetch it.
-
-const saveToDisk = () => {
-    console.log('Save to disk clicked')
-    // Implementation for saving would call ProjectStore action
+const renderMarkdown = (text) => {
+    if (!text) return ''
+    return marked(text)
 }
+
+const handleManualSave = async () => {
+    try {
+        if (props.isTranslation) {
+             await projectStore.updateTranslationContent(props.collection, props.slug, props.content)
+        } else {
+             await projectStore.updateContent(props.collection, props.slug, props.content)
+        }
+        alert('Contenido guardado.')
+    } catch (e) {
+        console.error(e)
+    }
+}
+
+const handlePersist = async () => {
+    try {
+        await projectStore.persistDraft(props.collection, props.slug)
+    } catch (e) {
+        console.error(e)
+    }
+}
+
+const validation = computed(() => {
+    if (props.isTranslation) return null
+    return projectStore.currentProject?.validation || null
+})
 </script>
 
 <template>
-    <div class="flex flex-col h-full bg-black text-neutral-300">
+    <div class="flex flex-col h-full bg-[#050505] text-neutral-300 border-l border-white/5 relative">
         <!-- Sticky Header -->
-        <div class="flex items-center justify-between px-6 py-4 border-b border-white/10 bg-black/80 backdrop-blur-sm z-10 sticky top-0">
-            <h2 class="text-xs font-mono text-neutral-500 uppercase tracking-widest">
-                DRAFT PREVIEW
-            </h2>
-            <button 
-                @click="saveToDisk"
-                class="flex items-center gap-2 text-xs font-mono px-3 py-1.5 bg-neutral-900 border border-green-500/30 text-green-500 hover:bg-green-500/10 transition-all rounded"
-            >
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
-                SAVE TO DISK
-            </button>
+        <div class="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-[#050505]/90 backdrop-blur-md z-10 sticky top-0">
+            <div class="flex flex-col">
+                <h2 class="text-[10px] font-bold text-white uppercase tracking-[0.2em]">
+                    {{ isTranslation ? 'English Translation' : 'Archivo Maestro' }}
+                </h2>
+                <span class="text-[8px] text-neutral-600 uppercase tracking-widest mt-0.5">
+                    {{ slug }}{{ isTranslation ? '.en' : '' }}.md
+                </span>
+            </div>
+            
+            <div class="flex gap-2">
+                 <button v-if="!isTranslation && projectStore.currentProject?.has_pending_draft"
+                    @click="handlePersist"
+                    class="flex items-center gap-2 text-[9px] font-bold px-3 py-1.5 bg-amber-500 text-black hover:bg-amber-400 transition-all uppercase tracking-widest shadow-[0_0_15px_rgba(245,158,11,0.2)]"
+                >
+                    Autorizar Sugerencia
+                </button>
+
+                <button 
+                    @click="handleManualSave"
+                    class="flex items-center gap-2 text-[9px] font-bold px-3 py-1.5 bg-neutral-900 border border-neutral-700 text-neutral-300 hover:text-white hover:border-neutral-500 transition-all uppercase tracking-widest"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                    Guardar
+                </button>
+            </div>
+        </div>
+
+        <!-- Validation Results Banner -->
+        <div v-if="validation" class="px-6 py-2 border-b border-white/5 bg-[#0a0a0a] space-y-1">
+            <div v-if="validation.schema_check?.valid" class="text-[9px] text-emerald-500 flex items-center gap-2">
+                <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
+                SCHEMA OK
+            </div>
+            <div v-else-if="validation.schema_check" class="text-[9px] text-red-500 flex items-center gap-2 font-bold animate-pulse">
+                <span class="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
+                ERROR DE SCHEMA: {{ validation.schema_check.error }}
+            </div>
+
+            <div v-if="validation.spellcheck?.errors?.length > 0" class="text-[9px] text-amber-500 flex items-center gap-2">
+                <span class="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
+                {{ validation.spellcheck.errors.length }} POSIBLES ERRORES DE ORTOGRAFÍA
+            </div>
         </div>
 
         <!-- Content Area -->
-        <div class="flex-1 overflow-y-auto p-8 prose prose-invert prose-neutral max-w-none">
-             <div v-if="!props.content" class="h-full flex flex-col items-center justify-center text-neutral-600">
-                <p class="font-mono text-xs mb-2">NO DRAFT CONTENT</p>
-                <p class="text-sm">Genera un borrador en el chat para previsualizarlo aquí.</p>
+        <div class="flex-1 overflow-y-auto p-10 custom-scrollbar selection:bg-amber-500 selection:text-black">
+             <div v-if="!props.content" class="h-full flex flex-col items-center justify-center text-neutral-800">
+                <p class="font-mono text-xs mb-2 uppercase tracking-[0.3em] font-bold">SIN DATOS</p>
+                <p class="text-[10px] font-mono tracking-widest opacity-30">EL ARCHIVO ESTÁ VACÍO O NO HA SIDO CARGADO.</p>
             </div>
             
-            <article v-else class="whitespace-pre-wrap font-mono text-sm leading-relaxed">
-                {{ props.content }}
+            <article v-else class="prose prose-invert prose-xs max-w-none font-mono leading-relaxed prose-headings:uppercase prose-headings:tracking-widest prose-headings:text-neutral-200">
+                <div v-html="renderMarkdown(props.content)"></div>
             </article>
         </div>
     </div>
 </template>
 
 <style scoped>
-/* Basic styling for the preview area */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: #050505;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #262626;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #404040;
+}
 </style>
