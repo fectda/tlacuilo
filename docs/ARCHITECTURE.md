@@ -116,6 +116,8 @@ El frontend debe llamar a estos dos endpoints en paralelo al cargar un proyecto.
 **B. Ciclo de Entrevista**
 -   `POST /api/{collection}/{slug}/init`: **Arranque de Sesión (Trigger)**.
     -   **Responsabilidad**: Evaluar estado y, si es necesario, construir el **Contexto Cero** (System Prompt) para delegar la ejecución al endpoint `/message`.
+    -   **Base de Conocimiento**:
+        -   System Prompt: `prompts/system/tlacuilo_digital.md`
     -   **Escenarios de Negocio**:
         1.  **Lienzo en Blanco (Nuevo)**: Historial vacío -> Construye Payload con System Prompt -> Llama internamente a `/message` (Trigger oculto).
         2.  **Deuda Técnica (Interrumpido)**: Último msg User -> Llama internamente a `/message` (sin input nuevo) para procesar pendiente.
@@ -125,6 +127,10 @@ El frontend debe llamar a estos dos endpoints en paralelo al cargar un proyecto.
         -   **Si NO se genera Mensaje**: Retorna HTTP 204 No Content.
 -   `POST /api/{collection}/{slug}/message`: **Mensajería Transaccional (Context-Aware)**.
     -   **Responsabilidad**: Recibir un mensaje, persistirlo, obtener respuesta de la IA (Llama/Mistral) y persistir respuesta.
+    -   **Base de Conocimiento**:
+        -   System Prompt: `prompts/system/tlacuilo_digital.md`
+        -   Strategy (Atoms/Bits): `prompts/strategies/atoms_bits_strategy.md`
+        -   Strategy (Mind): `prompts/strategies/mind_strategy.md`
     -   **Input**: `{ "content": "Texto...", "system_only": true|false (opcional), "response_system_only": true|false (opcional) }`.
     -   **Validación**:
         1.  **Existencia**: El objeto no puede ser nulo.
@@ -146,7 +152,7 @@ El frontend debe llamar a estos dos endpoints en paralelo al cargar un proyecto.
         1.  **Recuperación de Contexto**:
             -   Obtiene el MD actual siguiendo las mismas reglas de precedencia que `GET /api/{collection}/{slug}/content`.
             -   Carga el **Template** estructural del documento.
-            -   Carga el **System Prompt Template** específico para generación de borrador (instrucciones de forzado de formato MD).
+            -   Carga el **System Prompt Template** específico para generación de borrador (instrucciones de forzado de formato MD): `prompts/strategies/draft_generation.md`.
         2.  **Construcción de Prompt**: Crea un mensaje de sistema instruyendo "Genera solo MD final...".
         3.  **Delegación a `/message`**: Llama internamente a `/message` con:
             -   `content`: El prompt construido.
