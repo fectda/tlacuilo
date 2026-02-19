@@ -105,7 +105,7 @@ El frontend debe llamar a estos dos endpoints en paralelo al cargar un proyecto.
         2.  **Semilla (Hidratación)**: Si Portafolio existe pero Local no -> Copia Portafolio a Local y devuelve contenido.
         3.  **Sesión Activa (`is_working_copy_active: true`)**: Si hay trabajo en curso -> Devuelve Local (Ignora Portafolio).
         4.  **Sincronización Pasiva (`is_working_copy_active: false`)**: Si existe en ambos y no hay sesión -> Actualiza Local desde Portafolio y devuelve contenido. Estado: `revisión`.
-    -   **Respuesta**: `{ "content": "...", "status": "revisión|borrador" }`.
+    -   **Respuesta**: `{ "content": "..." }`.
 -   `GET /api/{collection}/{slug}/chat/history`: Obtiene el historial de conversación.
     -   **Responsabilidad**: Devolver la lista de mensajes VISIBLES del `chat_history.json`. Filtra y oculta los mensajes con `system_only: true`.
     -   **Respuesta**: `{ "messages": [...] }`. Si está vacío o corrupto, devuelve `{ "messages": [] }`.
@@ -177,7 +177,7 @@ El frontend debe llamar a estos dos endpoints en paralelo al cargar un proyecto.
 
 
 -   `POST /api/{collection}/{slug}/promote`: **Promoción al Portafolio (Finalización)**.
-    -   **Responsabilidad**: Validar estrictamente la Copia de Trabajo, marcarla como `published` en el estatus del la documetnacin no en el cuerpo del md, MOVERLA al Portafolio Oficial (sobreescribiendo) y detonar la traducción automática.
+    -   **Responsabilidad**: Validar estrictamente la Copia de Trabajo, marcarla como `promovido` en el estatus del la documetnacin no en el cuerpo del md, MOVERLA al Portafolio Oficial (sobreescribiendo).
     -   **Input**: `{}`.
     -   **Validación**:
         1.  **Schema Check Estricto**: Debe tener Frontmatter completo. Si falta algo, rechaza (400).
@@ -187,7 +187,6 @@ El frontend debe llamar a estos dos endpoints en paralelo al cargar un proyecto.
         2.  **Estado**: Actualizar `projects/{collection}/{slug}/doc_state.json` -> `doc_status: promovido`.
         3.  **IO**: Mover/Copiar a `PORTFOLIO_PATH/{collection}/es/{slug}.md`.
         4.  Apagar flag `is_working_copy_active`.
-        5.  **Trigger (Background)**: Iniciar generación de traducción (esto podría cambiar estado a `traducción` temporalmente o manejarlo en paralelo).
     -   **Contrato de Respuesta (Output)**:
         -   **Exitosa (200)**: Cuerpo vacío.
         -   **Fallida (400)**: Error de validación estructural.
