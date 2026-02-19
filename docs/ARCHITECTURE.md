@@ -37,7 +37,7 @@ Carpetas raíz dentro del portafolio.
 Cada carpeta dentro de una colección es un proyecto.
 -   Identificador: `slug` (nombre de la carpeta).
 -   **Estatus del Proyecto** (`status`): Define la madurez técnica (`idea`, `poc`, `wip`, `done`). (Ver `docs/definitions/MATURITY_LEVELS.md`).
--   **Estatus de Documentación** (`doc_status`): Define la etapa en el flujo de Tlacuilo (`borrador`, `revisión`, `traducción`, `publicado`). 
+-   **Estatus de Documentación** (`doc_status`): Define la etapa en el flujo de Tlacuilo (`borrador`, `revisión`, `promovido`, `traducción`, `publicado`). 
     -   *Almacenamiento*: Se guarda **exclusivamente** en la Memoria Local (`projects/{slug}/doc_state.json`). **NUNCA** en el Frontmatter del archivo final.
 -   **Visibilidad** (`draft`): Booleano en el Frontmatter que indica si el archivo está listo para el mundo o es privado.
 
@@ -62,7 +62,7 @@ Gestiona la lectura y escritura en el sistema de archivos (Portafolio y Local).
           "id": "slug-identificador",
           "name": "Título del Proyecto",
           "description": "Breve resumen del frontmatter",
-          "doc_status": "borrador",
+          "doc_status": "revisión",
           "published": false,
           "type": "atoms"
         }
@@ -104,14 +104,14 @@ El frontend debe llamar a estos dos endpoints en paralelo al cargar un proyecto.
         1.  **Vacío (Proyecto Nuevo)**: Si no existe en ningún lado -> Devuelve Plantilla Base.
         2.  **Semilla (Hidratación)**: Si Portafolio existe pero Local no -> Copia Portafolio a Local y devuelve contenido.
         3.  **Sesión Activa (`is_working_copy_active: true`)**: Si hay trabajo en curso -> Devuelve Local (Ignora Portafolio).
-        4.  **Sincronización Pasiva (`is_working_copy_active: false`)**: Si existe en ambos y no hay sesión -> Actualiza Local desde Portafolio y devuelve contenido.
-    -   **Respuesta**: `{ "content": "...", "status": "draft|published" }`.
+        4.  **Sincronización Pasiva (`is_working_copy_active: false`)**: Si existe en ambos y no hay sesión -> Actualiza Local desde Portafolio y devuelve contenido. Estado: `revisión`.
+    -   **Respuesta**: `{ "content": "...", "status": "revisión|borrador" }`.
 -   `GET /api/{collection}/{slug}/chat/history`: Obtiene el historial de conversación.
     -   **Responsabilidad**: Devolver la lista de mensajes VISIBLES del `chat_history.json`. Filtra y oculta los mensajes con `system_only: true`.
     -   **Respuesta**: `{ "messages": [...] }`. Si está vacío o corrupto, devuelve `{ "messages": [] }`.
 -   `POST /api/{collection}/{slug}/revert`: **Abortar/Retomar Original**.
     -   **Responsabilidad**: Descartar el borrador local actual y restaurar la versión del Portafolio.
-    -   **Efecto**: Sobreescribe el `{slug}.md` local con el oficial, apaga el validador (`is_working_copy_active: false`). Mantiene el historial de chat.
+    -   **Efecto**: Sobreescribe el `{slug}.md` local con el oficial, apaga el validador (`is_working_copy_active: false`). Mantiene el historial de chat. Regresa el estado a `revisión`.
 
 **B. Ciclo de Entrevista**
 -   `POST /api/{collection}/{slug}/init`: **Arranque de Sesión (Trigger)**.
@@ -157,7 +157,8 @@ El frontend debe llamar a estos dos endpoints en paralelo al cargar un proyecto.
         -   **Exitosa (200)**: `{ "content": "# Nuevo MD...", "status": "draft" }`. (Formato compatible con `GET /content`).
         -   **Fallida (500/503)**: Error en generación.
 
-**C. Validación y Persistencia (Manual)**
+**C. Validación, Persistencia y Promoción**
+
 -   `POST /api/{collection}/{slug}/persist`: **Autorización de Cambios (Persistencia)**.
     -   **Responsabilidad**: Validar el contenido (contra plantilla) y SOBREESCRIBIR el archivo `{slug}.md` físico (Copia de Trabajo), activando obligatoriamente el estado de sesión.
     -   **Input**: `{ "content": "# Markdown Nuevo..." }`.
@@ -167,15 +168,14 @@ El frontend debe llamar a estos dos endpoints en paralelo al cargar un proyecto.
     -   **Proceso Interno**:
         1.  Identificar la ruta física del archivo `{slug}.md` en la carpeta de trabajo.
         2.  Escribir el contenido (Sobreescritura total).
-        3.  Establecer la bandera `is_working_copy_active = true`.
+        3.  **Estado**: Actualizar `doc_state.json` -> `doc_status: borrador`.
+        4.  Establecer la bandera `is_working_copy_active = true`.
     -   **Contrato de Respuesta (Output)**:
         -   **Exitosa (200)**: Cuerpo vacío.
         -   **Fallida (400)**: Error de validación estructural.
         -   **Fallida (500)**: Error de escritura en disco. 
 
- 
 
-**D. Publicación y Localización (English Flow)**
 -   `POST /api/{collection}/{slug}/promote`: **Promoción al Portafolio (Finalización)**.
     -   **Responsabilidad**: Validar estrictamente la Copia de Trabajo, marcarla como `published` en el estatus del la documetnacin no en el cuerpo del md, MOVERLA al Portafolio Oficial (sobreescribiendo) y detonar la traducción automática.
     -   **Input**: `{}`.
@@ -184,13 +184,27 @@ El frontend debe llamar a estos dos endpoints en paralelo al cargar un proyecto.
         2.  **Existencia**: Debe haber una Copia de Trabajo activa.
     -   **Proceso Interno**:
         1.  Leer `working_copy/{slug}.md`.
-        2.  Actualizar Frontmatter: `status: published`.
+        2.  **Estado**: Actualizar `projects/{collection}/{slug}/doc_state.json` -> `doc_status: promovido`.
         3.  **IO**: Mover/Copiar a `PORTFOLIO_PATH/{collection}/es/{slug}.md`.
-        4.  **Trigger (Background)**: Iniciar generación de traducción.
+        4.  Apagar flag `is_working_copy_active`.
+        5.  **Trigger (Background)**: Iniciar generación de traducción (esto podría cambiar estado a `traducción` temporalmente o manejarlo en paralelo).
     -   **Contrato de Respuesta (Output)**:
         -   **Exitosa (200)**: Cuerpo vacío.
         -   **Fallida (400)**: Error de validación estructural.
         -   **Fallida (500)**: Error de escritura o movimiento de archivo. 
+
+**D. Localización (English Flow)**
+-   `GET /api/{collection}/{slug}/translate`: **Lectura Traducción (Inglés)**.
+    -   **Responsabilidad**: Obtener el contenido del documento en Inglés aplicando Reglas de Negocio (Espejo de `/content`).
+    -   **Paths**:
+        -   Local: `working_copy/{slug}.en.md`.
+        -   Portafolio: `PORTFOLIO_PATH/{collection}/en/{slug}.md`.
+    -   **Lógica de Selección**:
+        1.  **Vacío (Nuevo)**: Si no existe en ningún lado -> Devuelve Vacío o Plantilla EN.
+        2.  **Semilla (Hidratación)**: Si Portafolio existe (`en/{slug}.md`) pero Local no -> Copia Portafolio a Local (`{slug}.en.md`) y devuelve contenido.
+        3.  **Sesión Activa**: Si hay trabajo en curso -> Devuelve Local (Ignora Portafolio).
+        4.  **Sincronización Pasiva**: Si existe en ambos y el status de la documentacion no es `promovido` -> Actualiza Local desde Portafolio.
+    -   **Respuesta**: `{ "content": "..." }`. 
 
 -   `POST /api/{collection}/{slug}/translate`: **Inicia Localización**.
     -   **Responsabilidad**: 

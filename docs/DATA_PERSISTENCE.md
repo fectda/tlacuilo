@@ -19,7 +19,7 @@ Toda la meta-información y el contexto de las conversaciones se almacenan **den
 -   **Archivos de Memoria**:
     -   `chat_history.json`: Array de objetos `{ role, content, timestamp }`. Es la bitácora de decisiones del proyecto.
     -   `doc_state.json`: Objeto de control del flujo.
-        -   `doc_status`: `borrador`, `revisión`, `traducción`, `publicado`.
+        -   `doc_status`: `borrador`, `revisión`, `promovido`, `traducción`, `publicado`.
         -   `last_update`: Timestamp de la última modificación.
         -   `pila_de_pendientes`: Lista de tareas que el GEM detectó como inacabadas.
     -   `shadow_draft.md`: (Copia de trabajo) El archivo donde Tlacuilo escribe borradores antes de que el usuario los "apruebe" para el Portafolio.
