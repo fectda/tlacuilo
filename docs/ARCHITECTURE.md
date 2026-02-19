@@ -96,14 +96,46 @@ Tlacuilo decide qué versión del archivo `{slug}.md` mostrar basándose en el e
 Todas las rutas operan bajo el prefijo `/api`.
 
 **A. Sincronización de Contexto**
--   `GET /api/{collection}/{slug}`: Inicializa la sesión de trabajo.
-    -   Aplica las **Reglas de Precedencia** anteriores para cargar el MD correcto.
-    -   Ensambla el historial (`chat_history.json`). Si no existe, lo inicializa con el System Prompt.
-    -   Activa el flag `is_working_copy_active: true` si el usuario interactúa.
--   `POST /api/{collection}/{slug}/revert`: **Retomar Original**. Descarta el trabajo local actual, sobreescribe con la versión del Portafolio y apaga el flag de sesión activa.
+El frontend debe llamar a estos dos endpoints en paralelo al cargar un proyecto. NUNCA tienen efectos secundarios (no reparan, no escriben, no crean).
+
+-   `GET /api/{collection}/{slug}/content`: Obtiene el contenido del documento aplicando Reglas de Negocio.
+    -   **Responsabilidad**: Devolver el texto del archivo `.md` y su estado.
+    -   **Lógica de Selección (El Validador)**:
+        1.  **Vacío (Proyecto Nuevo)**: Si no existe en ningún lado -> Devuelve Plantilla Base.
+        2.  **Semilla (Hidratación)**: Si Portafolio existe pero Local no -> Copia Portafolio a Local y devuelve contenido.
+        3.  **Sesión Activa (`is_working_copy_active: true`)**: Si hay trabajo en curso -> Devuelve Local (Ignora Portafolio).
+        4.  **Sincronización Pasiva (`is_working_copy_active: false`)**: Si existe en ambos y no hay sesión -> Actualiza Local desde Portafolio y devuelve contenido.
+    -   **Respuesta**: `{ "content": "...", "status": "draft|published" }`.
+-   `GET /api/{collection}/{slug}/chat/history`: Obtiene el historial de conversación.
+    -   **Responsabilidad**: Devolver la lista de mensajes VISIBLES del `chat_history.json`. Filtra y oculta los mensajes con `system_only: true`.
+    -   **Respuesta**: `{ "messages": [...] }`. Si está vacío o corrupto, devuelve `[]`.
+-   `POST /api/{collection}/{slug}/revert`: **Abortar/Retomar Original**.
+    -   **Responsabilidad**: Descartar el borrador local actual y restaurar la versión del Portafolio.
+    -   **Efecto**: Sobreescribe el `{slug}.md` local con el oficial, apaga el validador (`is_working_copy_active: false`). Mantiene el historial de chat.
 
 **B. Ciclo de Entrevista**
--   `POST /api/{collection}/{slug}/message`: Chat bidireccional. Persiste historial y usa el MD activo como contexto de IA.
+-   `POST /api/{collection}/{slug}/init`: **Arranque de Sesión (Trigger)**.
+    -   **Responsabilidad**: Evaluar estado y, si es necesario, construir el **Contexto Cero** (System Prompt) para delegar la ejecución al endpoint `/message`.
+    -   **Escenarios de Negocio**:
+        1.  **Lienzo en Blanco (Nuevo)**: Historial vacío -> Construye Payload con System Prompt -> Llama internamente a `/message` (Trigger oculto).
+        2.  **Deuda Técnica (Interrumpido)**: Último msg User -> Llama internamente a `/message` (sin input nuevo) para procesar pendiente.
+        3.  **Esperando al Humano**: Último msg Asistente -> Retorno temprano (No llama a message).
+    -   **Contrato de Respuesta**:
+        -   **Si se genera un Mensaje** (Lienzo/Deuda): Se envía dicho **Mensaje** jutno con la bandera `system_only: true` como input al endpoint `/message` y se retorna su respuesta.
+        -   **Si NO se genera Mensaje**: Retorna HTTP 204 No Content.
+-   `POST /api/{collection}/{slug}/message`: **Mensajería Transaccional (Context-Aware)**.
+    -   **Responsabilidad**: Recibir un mensaje, persistirlo, obtener respuesta de la IA (Llama/Mistral) y persistir respuesta.
+    -   **Input**: `{ "content": "Texto...", "system_only": true|false (opcional) }`.
+    -   **Validación**:
+        1.  **Existencia**: El objeto no puede ser nulo.
+        2.  **`content`**: String NO vacío. No admite espacios en blanco (" ").
+        3.  **`system_only`**: Booleano opcional. Persistido pero oculto en el GET.
+    -   **Proceso Interno (Sanitización)**: Antes de enviar a Ollama, el servicio limpia el historial y construye una lista que contiene ÚNICAMENTE `role` y `content`, eliminando cualquier metadato interno (`timestamp`, `system_only`, etc.).
+    -   **Output (Respuesta Exitosa)**: Objeto JSON estándar: `{ "role": "assistant", "content": "Respuesta IA...", "timestamp": "ISO-8601" }`.
+    -   **Output (Respuesta Fallida - Error General)**:
+        -   **Http Code**: 500/503.
+        -   **Efecto**: Si falla CUALQUIER paso tras guardar el mensaje del usuario (IA, IO, Formato), se aborta. El mensaje del usuario persiste, pero el del asistente **NO** se genera. NUNCA se guarda basura.
+
 -   `POST /api/{collection}/{slug}/draft`: El agente propone actualizaciones. **No persistente** (no toca el archivo hasta ser autorizado).
 
 **C. Validación y Persistencia**
