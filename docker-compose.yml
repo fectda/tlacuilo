@@ -13,7 +13,7 @@ services:
     volumes:
       - ./backend:/home/tlacuilo/app
       - ./projects:/home/tlacuilo/projects
-      - ./portafolio:/home/tlacuilo/portfolio
+      - ${PORTAFOLIO_PATH}:/home/tlacuilo/portfolio
       - ./prompts:/app/prompts:ro
     env_file:
       - .env
