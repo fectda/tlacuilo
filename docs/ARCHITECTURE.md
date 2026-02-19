@@ -205,26 +205,34 @@ El frontend debe llamar a estos dos endpoints en paralelo al cargar un proyecto.
         4.  **Sincronización Pasiva**: Si existe en ambos y el status de la documentacion no es `promovido` -> Actualiza Local desde Portafolio.
     -   **Respuesta**: `{ "content": "..." }`. 
 
--   `POST /api/{collection}/{slug}/translate/draft`: **Refinamiento Interactivo (Inglés)**.
-    -   **Responsabilidad**: Generar o Refinar el borrador en Inglés basándose en instrucciones. **Stateless (Sin historial)**.
-    -   **Input**: `{ "instructions": "Cambia el tono a formal..." }`.
-    -   **Contexto**: Lee `es/{slug}.md` (Fuente) y `en/{slug}.md` (Actual).
-    -   **Proceso**:
-        1.  Cargar **System Prompt de Traducción** (Especializado en preservar formato).
-        2.  Construir Prompt con: Instrucción Usuario + MD Español + MD Inglés Actual.
-        3.  Llamada a LLM (Ollama).
-    -   **Output**: Retorna el contenido generado `{ "content": "..." }` para preview. NO guarda en disco. 
+-   `POST /api/{collection}/{slug}/translate/draft`: **Generación/Refinamiento (Inglés)**.
+    -   **Responsabilidad**: Generar la primera versión en Inglés O refinar un borrador existente.
+    -   **Input**: `{ "from_scratch": boolean, "instruction": "string (requerido si from_scratch es false)", "current_draft": "string (requerido si from_scratch es false)" }`.
+    -   **Lógica de Negocio**:
+        1.  **Traducción Directa (`from_scratch: true`)**:
+            -   Ignora `instruction` y `current_draft`.
+            -   **Contexto**: Solo `{slug}.md` (Fuente).
+            -   **Prompt**: System Prompt de Traducción + "contexto" + "instrucciones de formato".
+        2.  **Refinamiento (`from_scratch: false`)**:
+            -   Requiere `instruction` (Feedback Usuario) y `current_draft` (Estado actual del editor).
+            -   **Contexto**: `{slug}.md` (Fuente) + `current_draft` (Target) + `instruction`.
+            -   **Prompt**: System Prompt + "Contexto" + "instrucciones de formato".
+    -   **Output**: `{ "content": "..." }`. NO guarda en disco. 
 
--   `POST /api/{collection}/{slug}/translate/persist`: **Guardado Manual (Inglés)**.
-    -   **Responsabilidad**: Guardar cambios en el archivo de inglés.
-    -   **Input**: `{ "content": "..." }`.
+-   `POST /api/{collection}/{slug}/translate/persist`: **Autorización de Cambios (Persistencia Inglés)**.
+    -   **Responsabilidad**: Validar el contenido (contra plantilla) y SOBREESCRIBIR el archivo `{slug}.en.md` físico (Copia de Trabajo), activando obligatoriamente el estado de sesión.
+    -   **Input**: `{ "content": "# Markdown Nuevo..." }`.
     -   **Validación**:
-        1.  **Integridad Estructural**: Debe respetar el Frontmatter y la estructura del documento.
+        1.  **Integridad Estructural**: El contenido DEBE cumplir con la estructura/plantilla definida para la colección (Headers, Frontmatter, Secciones obligatorias). Si falla, rechaza.
         2.  **Contenido**: No vacío.
-    -   **Proceso**:
-        1.  Escribir/Sobreescribir `PORTFOLIO_PATH/{collection}/en/{slug}.md`.
-        2.  **Estado**: Actualizar `projects/{collection}/{slug}/doc_state.json` -> `doc_status: traducción`.
-    -   **Respuesta**: 200 OK.
+    -   **Proceso Interno**:
+        1.  Identificar la ruta física del archivo `{slug}.en.md` en la carpeta de trabajo.
+        2.  Escribir el contenido (Sobreescritura total).
+        3.  **Estado**: Actualizar `doc_state.json` -> `doc_status: traducción`.
+    -   **Contrato de Respuesta (Output)**:
+        -   **Exitosa (200)**: Cuerpo vacío.
+        -   **Fallida (400)**: Error de validación estructural.
+        -   **Fallida (500)**: Error de escritura en disco.
 
 **E. Servicio de Tlacuilo Ixtli (`/studio`)**
 Puente con ComfyUI para generación de imágenes.
