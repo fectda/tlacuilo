@@ -7,8 +7,14 @@ from app.services.chat_service import ChatService
 router = APIRouter()
 
 class MessageRequest(BaseModel):
-    message: str
-    mode: str = "interview"
+    content: str
+    system_only: Optional[bool] = False
+    response_system_only: Optional[bool] = False
+
+class MessageResponse(BaseModel):
+    role: str
+    content: str
+    timestamp: str
 
 class ContentUpdate(BaseModel):
     content: str
@@ -65,48 +71,101 @@ async def revert_project(collection: str, slug: str, service: ProjectService = D
 
 
 
-@router.post("/{collection}/{slug}/message", response_model=List[Dict[str, Any]])
+@router.post("/{collection}/{slug}/init")
+async def init_session(collection: str, slug: str, 
+                       chat_service: ChatService = Depends(get_chat_service),
+                       project_service: ProjectService = Depends(get_project_service)):
+    """
+    POST .../init: Arranque de Sesión (Trigger).
+    Responsabilidad: Evaluar estado y, si es necesario, construir el Contexto Cero.
+    """
+    try:
+        # 1. Recuperar historial
+        history = project_service.get_chat_history_raw(collection, slug)
+        
+        # 2. Evaluar Escenarios de Negocio
+        if not history:
+            # Escenario 1: Lienzo en Blanco
+            # Delegamos a chat_service la construcción del Contexto Cero y llamada inicial
+            response = await chat_service.initialize_new_project(collection, slug)
+            return response
+
+        last_msg = history[-1]
+        
+        if last_msg["role"] == "user":
+            # Escenario 2: Deuda Técnica (Último msg User)
+            # Llamamos a message sin input nuevo para procesar pendiente
+            # Pasamos un mensaje de sistema interno si es necesario, o simplemente disparamos el re-intento
+            return await chat_service.process_pending_debt(collection, slug)
+            
+        if last_msg["role"] == "assistant":
+            # Escenario 3: Esperando al Humano
+            from fastapi import Response
+            return Response(status_code=204)
+
+    except Exception as e:
+        logger.error(f"Error in /init for {slug}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/{collection}/{slug}/message", response_model=MessageResponse)
 async def send_message(collection: str, slug: str, request: MessageRequest, 
                        chat_service: ChatService = Depends(get_chat_service),
                        project_service: ProjectService = Depends(get_project_service)):
-    """Enviar mensaje al LLM."""
+    """
+    POST .../message: Mensajería Transaccional (Context-Aware).
+    Responsabilidad: Recibir un mensaje, persistirlo, obtener respuesta de la IA y persistir respuesta.
+    """
     try:
-        # Activate working copy flag on interaction
-        project_service.update_project_state(collection, slug, {"is_working_copy_active": True})
-        return await chat_service.send_message(collection, slug, request.message, request.mode)
+        # Activar working copy flag obligatoriamente
+        project_service.activate_session(collection, slug)
+        
+        # Procesar mensaje
+        response = await chat_service.process_message(
+            collection, 
+            slug, 
+            request.content, 
+            system_only=request.system_only,
+            response_system_only=request.response_system_only
+        )
+        return response
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
+        logger.error(f"Error in /message for {slug}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/{collection}/{slug}/draft", response_model=Dict[str, Any])
+import logging
+logger = logging.getLogger(__name__)
+
+@router.post("/{collection}/{slug}/draft")
 async def generate_draft(collection: str, slug: str, chat_service: ChatService = Depends(get_chat_service)):
-    """Generar propuesta de MD (No persistente)."""
+    """
+    POST .../draft: Generación de Borrador (Propuesta).
+    """
     try:
         content = await chat_service.generate_draft(collection, slug)
-        return {"content": content, "status": "propuesta_generada"}
+        return {"content": content, "status": "draft"}
     except Exception as e:
+        logger.error(f"Error generating draft for {slug}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-# --- Validación y Persistencia ---
+# --- Validación, Persistencia y Promoción ---
 
-@router.post("/{collection}/{slug}/persist", response_model=Dict[str, Any])
-async def persist_draft(collection: str, slug: str, request: DraftPersistRequest, service: ProjectService = Depends(get_project_service)):
-    """Guardar la propuesta del agente en el .md local."""
+@router.post("/{collection}/{slug}/persist")
+async def persist_content(collection: str, slug: str, request: ContentUpdate, service: ProjectService = Depends(get_project_service)):
+    """
+    POST .../persist: Autorización de Cambios (Persistencia).
+    """
     result = service.save_working_copy(collection, slug, request.content)
     if "error" in result:
         raise HTTPException(status_code=result.get("status_code", 400), detail=result["error"])
     return result
 
-@router.put("/{collection}/{slug}", response_model=Dict[str, Any])
-async def save_manual(collection: str, slug: str, request: ContentUpdate, service: ProjectService = Depends(get_project_service)):
-    """Guardado manual del usuario con validación."""
-    result = service.save_working_copy(collection, slug, request.content)
-    if "error" in result:
-        raise HTTPException(status_code=result.get("status_code", 400), detail=result["error"])
-    return result
-
-@router.post("/{collection}/{slug}/publish", response_model=Dict[str, Any])
-async def publish_project(collection: str, slug: str, service: ProjectService = Depends(get_project_service)):
-    """Mueve la Copia de Trabajo validada al Portafolio."""
+@router.post("/{collection}/{slug}/promote")
+async def promote_project(collection: str, slug: str, service: ProjectService = Depends(get_project_service)):
+    """
+    POST .../promote: Promoción al Portafolio (Finalización).
+    """
     result = service.publish_project(collection, slug)
     if "error" in result:
         raise HTTPException(status_code=result.get("status_code", 400), detail=result["error"])

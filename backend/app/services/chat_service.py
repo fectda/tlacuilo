@@ -26,123 +26,174 @@ class ChatService:
         logger.warning(f"Prompt file not found: {path}")
         return ""
 
-    async def start_interview(self, collection: str, slug: str) -> List[Dict[str, Any]]:
+    async def initialize_new_project(self, collection: str, slug: str) -> Dict[str, Any]:
+        """
+        Escenario 1: Lienzo en Blanco.
+        Construye Contexto Cero y obtiene saludo inicial.
+        """
         project_dir = self._get_project_dir(collection, slug)
-        if not project_dir.exists():
-            project_dir.mkdir(parents=True, exist_ok=True)
-
-        # Choose strategy
-        strategy = "forense" if collection in ["atoms", "bits"] else "manifesto"
         
-        # Load prompts
-        system_base = self._read_prompt(self.prompts_path / "system" / "tlacuilo.md")
-        strategy_prompt = self._read_prompt(self.prompts_path / "strategies" / f"{strategy}.md")
+        # 1. Base Knowledge: System Prompt
+        system_prompt = self._read_prompt(self.prompts_path / "system" / "tlacuilo_digital.md")
         
-        full_system_prompt = f"{system_base}\n\n{strategy_prompt}"
+        # 2. Strategy Prompt
+        strategy_file = "atoms_bits_strategy.md" if collection in ["atoms", "bits"] else "mind_strategy.md"
+        strategy_prompt = self._read_prompt(self.prompts_path / "strategies" / strategy_file)
         
-        # Reset history
+        full_context = f"{system_prompt}\n\n{strategy_prompt}"
+        
+        # 3. Contexto Cero (Hidden System Message)
         history = [
             {
                 "role": "system", 
-                "content": full_system_prompt, 
-                "timestamp": datetime.now().isoformat()
+                "content": full_context, 
+                "timestamp": datetime.now().isoformat(),
+                "system_only": True
             }
         ]
         
-        # First message
-        first_message = {
+        # 4. First AI Greeting (Triggered internally)
+        # We simulate a "start" trigger message to the AI
+        history.append({
+            "role": "user",
+            "content": "[SYSTEM_TRIGGER: INICIAR ENTREVISTA]",
+            "timestamp": datetime.now().isoformat(),
+            "system_only": True
+        })
+        
+        response_content = await self._call_ollama(history)
+        
+        assistant_msg = {
             "role": "assistant",
-            "content": "Hola, soy Tlacuilo. Empecemos definiendo el contexto del proyecto. ¿Me puedes contar un poco sobre el desafío que intentas resolver?",
+            "content": response_content,
             "timestamp": datetime.now().isoformat()
         }
-        history.append(first_message)
+        history.append(assistant_msg)
         
         self._save_history(project_dir, history)
-        return history
+        return assistant_msg
 
-    async def send_message(self, collection: str, slug: str, message_text: str, mode: str = "interview") -> List[Dict[str, Any]]:
+    async def process_pending_debt(self, collection: str, slug: str) -> Dict[str, Any]:
+        """
+        Escenario 2: Deuda Técnica (Último msg User).
+        """
         project_dir = self._get_project_dir(collection, slug)
         history = self._load_history(project_dir)
         
-        # If history is empty or missing system prompt, re-initialize (safety)
-        if not history or history[0]["role"] != "system":
-            strategy = "forense" if collection in ["atoms", "bits"] else "manifesto"
-            system_base = self._read_prompt(self.prompts_path / "system" / "tlacuilo.md")
-            strategy_prompt = self._read_prompt(self.prompts_path / "strategies" / f"{strategy}.md")
-            full_system_prompt = f"{system_base}\n\n{strategy_prompt}"
-            if not history:
-                history = [{"role": "system", "content": full_system_prompt, "timestamp": datetime.now().isoformat()}]
-            else:
-                history.insert(0, {"role": "system", "content": full_system_prompt, "timestamp": datetime.now().isoformat()})
-
-        # Add user message
-        history.append({
-            "role": "user",
-            "content": message_text,
+        response_content = await self._call_ollama(history)
+        
+        assistant_msg = {
+            "role": "assistant",
+            "content": response_content,
             "timestamp": datetime.now().isoformat()
-        })
+        }
+        history.append(assistant_msg)
+        
+        self._save_history(project_dir, history)
+        return assistant_msg
+
+    async def process_message(self, collection: str, slug: str, content: str, 
+                              system_only: bool = False, 
+                              response_system_only: bool = False) -> Dict[str, Any]:
+        """
+        POST .../message implementation.
+        """
+        if not content.strip():
+            raise ValueError("Message content cannot be empty")
+
+        project_dir = self._get_project_dir(collection, slug)
+        history = self._load_history(project_dir)
+        
+        # Ensure system prompt exists (Safety injection if re-routing or manual edit cleared it)
+        if not history or history[0]["role"] != "system":
+            system_prompt = self._read_prompt(self.prompts_path / "system" / "tlacuilo_digital.md")
+            strategy_file = "atoms_bits_strategy.md" if collection in ["atoms", "bits"] else "mind_strategy.md"
+            strategy_prompt = self._read_prompt(self.prompts_path / "strategies" / strategy_file)
+            history.insert(0, {
+                "role": "system", 
+                "content": f"{system_prompt}\n\n{strategy_prompt}", 
+                "timestamp": datetime.now().isoformat(),
+                "system_only": True
+            })
+
+        # Append User message
+        user_msg = {
+            "role": "user",
+            "content": content,
+            "timestamp": datetime.now().isoformat(),
+            "system_only": system_only
+        }
+        history.append(user_msg)
         
         # Call LLM
         response_content = await self._call_ollama(history)
         
-        # Add assistant message
-        history.append({
+        # Append Assistant response
+        assistant_msg = {
             "role": "assistant",
             "content": response_content,
-            "timestamp": datetime.now().isoformat()
-        })
+            "timestamp": datetime.now().isoformat(),
+            "system_only": response_system_only
+        }
+        history.append(assistant_msg)
         
         self._save_history(project_dir, history)
-        return history
+        return assistant_msg
 
     async def generate_draft(self, collection: str, slug: str) -> str:
+        """
+        POST .../draft implementation.
+        """
         project_dir = self._get_project_dir(collection, slug)
         history = self._load_history(project_dir)
         
-        # Load Strategy for context (Forense/Spec Sheet vs Manifesto)
-        # Using definitions folder for structure rules (Architecture rule 3.B.1.5)
+        # Load Draft Generation Strategy
+        draft_strategy = self._read_prompt(self.prompts_path / "strategies" / "draft_generation.md")
         
-        # Instructions for draft
-        draft_instruction = ("Genera una propuesta de actualización para el archivo .md final. "
-                             "Sigue estrictamente la estructura técnica según la colección. "
-                             "Solo devuelve el contenido Markdown, sin explicaciones ni introducciones.")
-        
-        # Temporarily append instruction for the LLM call
-        draft_history = history + [{"role": "system", "content": draft_instruction}]
+        # Final instruction prompt (invisible)
+        draft_history = history + [{
+            "role": "system", 
+            "content": draft_strategy,
+            "system_only": True
+        }]
         
         draft_content = await self._call_ollama(draft_history)
         
-        # NOTE: WE DO NOT PERSIST HERE. The user must call /persist to write to disk.
+        # Sanitization: Clean code blocks
+        draft_content = draft_content.replace("```markdown", "").replace("```", "").strip()
+        
+        # Persist response in history as system_only (as per ARCHITECTURE 3.B.2.B.160)
+        history.append({
+            "role": "assistant",
+            "content": draft_content,
+            "timestamp": datetime.now().isoformat(),
+            "system_only": True
+        })
+        self._save_history(project_dir, history)
         
         return draft_content
 
     async def translate_proposal(self, collection: str, slug: str, source_content: str) -> str:
         """
-        Generates a translation proposal based on the provided source content.
+        Generates a translation proposal using translator.md.
         """
         system_prompt = self._read_prompt(self.prompts_path / "system" / "translator.md")
-        if not system_prompt:
-            system_prompt = "You are a professional technical translator. Translate the following Markdown content to English, maintaining all frontmatter and structure."
-            
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": f"Translate this:\n\n{source_content}"}
         ]
-        
         return await self._call_ollama(messages)
 
     async def refine_translation(self, collection: str, slug: str, english_content: str, user_instruction: str) -> str:
         """
-        Refines an existing translation based on user instructions.
+        Refines an existing translation.
         """
         system_prompt = self._read_prompt(self.prompts_path / "system" / "translator.md")
-        
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "assistant", "content": english_content},
             {"role": "user", "content": user_instruction}
         ]
-        
         return await self._call_ollama(messages)
 
     def _load_history(self, project_dir: Path) -> List[Dict[str, Any]]:
@@ -150,16 +201,22 @@ class ChatService:
         if history_file.exists():
             try:
                 return json.loads(history_file.read_text())
-            except:
+            except Exception as e:
+                logger.error(f"Error loading history for {project_dir}: {e}")
                 return []
         return []
 
     def _save_history(self, project_dir: Path, history: List[Dict[str, Any]]):
         history_file = project_dir / "chat_history.json"
-        history_file.write_text(json.dumps(history, indent=2))
+        try:
+            history_file.write_text(json.dumps(history, indent=2))
+        except Exception as e:
+            logger.error(f"Error saving history for {project_dir}: {e}")
 
     async def _call_ollama(self, messages: List[Dict[str, Any]]) -> str:
-        # Filter messages for Ollama (it doesn't like 'timestamp')
+        """
+        Sanitizer Protocol: Remove internal metadata (timestamp, system_only).
+        """
         ollama_messages = [{"role": msg["role"], "content": msg["content"]} for msg in messages]
         
         payload = {
@@ -175,7 +232,7 @@ class ChatService:
                 return response.json()["message"]["content"]
         except httpx.HTTPStatusError as e:
             logger.error(f"Ollama HTTP Error: {e.response.text}")
-            return f"Error: Ollama devolvió {e.response.status_code}. Payload: {json.dumps(payload)}. Respuesta: {e.response.text}"
+            raise Exception(f"IA Service Error: {e.response.status_code}")
         except Exception as e:
             logger.error(f"Error calling Ollama: {e}")
-            return f"Error: No se pudo conectar con el servicio de IA ({self.ollama_host}). Detalle: {str(e)}"
+            raise Exception(f"Connection error with IA service: {str(e)}")

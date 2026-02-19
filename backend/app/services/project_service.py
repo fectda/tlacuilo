@@ -181,6 +181,21 @@ class ProjectService:
         except:
             return {"doc_status": "borrador", "is_working_copy_active": False}
 
+    def get_chat_history_raw(self, collection: str, slug: str) -> List[Dict[str, Any]]:
+        """Reads chat_history.json without any filtering."""
+        history_file = self.local_path / collection / slug / "chat_history.json"
+        if not history_file.exists():
+            return []
+        try:
+            return json.loads(history_file.read_text())
+        except Exception as e:
+            logger.error(f"Error reading raw chat history for {slug}: {e}")
+            return []
+
+    def activate_session(self, collection: str, slug: str):
+        """Sets is_working_copy_active to True in doc_state.json."""
+        self.update_project_state(collection, slug, {"is_working_copy_active": True})
+
     def update_project_state(self, collection: str, slug: str, updates: Dict[str, Any]):
         """Updates doc_state.json with new values."""
         local_dir = self.local_path / collection / slug
@@ -297,23 +312,23 @@ class ProjectService:
         PUT .../{slug}: Manual Save.
         Includes Schema Validator (against templates) and Spellcheck placeholder.
         """
-        # 1. Schema Validation (Simplified against template structure)
+        # 1. Validation Logic (Strict as per ARCHITECTURE 3.C)
+        if not content.strip():
+             return {"error": "Content cannot be empty", "status_code": 400}
+             
         if not content.strip().startswith("---"):
              return {"error": "Invalid Markdown: Missing frontmatter (must start with ---)", "status_code": 400}
         
-        # In a real scenario, we'd use frontmatter.load and check keys against template
         try:
             post = frontmatter.loads(content)
+            # Mandatory Keys (Internal check)
             required_keys = ["title", "description", "draft"]
             missing = [k for k in required_keys if k not in post.metadata]
             if missing:
+                # We log warning but allow if it's not a 'publish' action
                 logger.warning(f"Project {slug} saved with missing metadata keys: {missing}")
         except Exception as e:
             return {"error": f"Metadata parsing error: {str(e)}", "status_code": 400}
-        
-        # 2. Spellcheck (Placeholder)
-        # TODO: Integrate with a library like pyspellchecker or an external API
-        logger.info(f"Spellcheck running for {slug}... No errors found (Placeholder)")
         
         local_dir = self.local_path / collection / slug
         local_dir.mkdir(parents=True, exist_ok=True)
@@ -321,8 +336,11 @@ class ProjectService:
         
         local_md.write_text(content)
         
-        # Update state
-        self.update_project_state(collection, slug, {"is_working_copy_active": True})
+        # Update state: status -> borrador, is_working_copy_active -> true
+        self.update_project_state(collection, slug, {
+            "is_working_copy_active": True,
+            "doc_status": "borrador"
+        })
         
         return {"status": "saved", "path": str(local_md)}
 
