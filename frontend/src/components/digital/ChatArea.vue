@@ -30,7 +30,11 @@ watch(() => chatStore.history, () => {
     scrollToBottom()
 }, { deep: true })
 
-onMounted(() => {
+onMounted(async () => {
+    // If history is empty or looks like just a local welcome, trigger /init
+    if (chatStore.history.length === 0) {
+        await chatStore.initSession(props.collection, props.slug)
+    }
     scrollToBottom()
 })
 
@@ -44,18 +48,19 @@ const handleSend = async () => {
 }
 
 const renderMarkdown = (text) => {
+    if (!text) return ''
     return marked(text)
 }
 </script>
 
 <template>
-    <div class="flex flex-col h-full bg-[#050505] text-gray-300 font-mono text-xs relative">
+    <div class="flex flex-col h-full bg-[#050505] text-gray-300 font-mono text-xs relative border-r border-white/5">
         <!-- Messages Area -->
         <div ref="messagesContainer" class="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar pb-32">
-            <template v-if="chatStore.history.length === 0">
+            <template v-if="chatStore.history.length === 0 && !chatStore.isTyping && !chatStore.loading">
                  <div class="flex flex-col items-center justify-center h-full text-neutral-600 opacity-50">
                     <span class="mb-2 text-2xl tracking-[0.2em] font-bold">TLACUILO</span>
-                    <p class="text-[10px]">INICIA LA CONVERSACIÓN...</p>
+                    <p class="text-[10px]">INICIANDO SESIÓN...</p>
                  </div>
             </template>
             
@@ -70,40 +75,45 @@ const renderMarkdown = (text) => {
                 <div class="p-4 border max-w-[90%] transition-colors duration-300"
                      :class="msg.role === 'user' 
                         ? 'bg-neutral-900 border-neutral-800 text-neutral-300' 
-                        : 'bg-transparent border-neutral-900 text-neutral-400 hover:border-neutral-800'">
+                        : 'bg-[#0a0a0a] border-neutral-900 text-neutral-400 hover:border-neutral-800'">
                     <div class="prose prose-invert prose-xs max-w-none leading-relaxed" v-html="renderMarkdown(msg.content)"></div>
                 </div>
             </div>
 
+            <!-- Loading indicator for history -->
+             <div v-if="chatStore.loading" class="flex flex-col items-center justify-center h-full opacity-30">
+                <span class="text-[9px] tracking-[0.3em] animate-pulse">CARGANDO MEMORIA...</span>
+            </div>
+
             <!-- Typing Indicator -->
-             <div v-if="chatStore.isTyping" class="flex flex-col gap-1 max-w-2xl mx-auto items-start animate-pulse">
+             <div v-if="chatStore.isTyping" class="flex flex-col gap-1 max-w-2xl mx-auto items-start">
                 <span class="text-[9px] uppercase tracking-[0.2em] text-neutral-700 mb-1">// TLACUILO</span>
                 <div class="p-4 border border-neutral-900 bg-transparent text-neutral-600">
-                    <span class="text-[9px] tracking-[0.3em]">ESCRIBIENDO...</span>
+                    <span class="text-[9px] tracking-[0.3em] animate-pulse">PROCESANDO...</span>
                 </div>
             </div>
             
              <!-- Error Message -->
             <div v-if="chatStore.error" class="max-w-2xl mx-auto mt-4 p-3 border border-red-900/50 bg-red-900/10 text-red-500 text-[10px] text-center tracking-widest uppercase">
-                ERROR: {{ chatStore.error }}
+                ERROR CRÍTICO: {{ chatStore.error }}
             </div>
         </div>
 
         <!-- Input Area -->
-        <div class="absolute bottom-0 left-0 w-full bg-black/80 backdrop-blur-md border-t border-white/5 p-6 shadow-[0_-10px_20px_rgba(0,0,0,0.5)]">
+        <div class="absolute bottom-0 left-0 w-full bg-black/80 backdrop-blur-md border-t border-white/5 p-6 shadow-[0_-10px_20px_rgba(0,0,0,0.5)] z-20">
             <div class="max-w-2xl mx-auto relative group">
                 <input 
                     v-model="messageInput"
                     @keydown.enter="handleSend"
                     type="text" 
-                    placeholder="COMANDO / MENSAJE..."
-                    class="w-full bg-[#0a0a0a] border border-neutral-900 p-4 pr-12 text-neutral-300 placeholder-neutral-700 focus:outline-none focus:border-white/20 focus:bg-[#0f0f0f] transition-all font-mono text-xs tracking-wider"
+                    placeholder="ESCRIBE AQUÍ PARA EL TLACUILO..."
+                    class="w-full bg-[#0a0a0a] border border-neutral-900 p-4 pr-12 text-neutral-300 placeholder-neutral-700 focus:outline-none focus:border-amber-500/50 focus:bg-[#0f0f0f] transition-all font-mono text-xs tracking-wider"
                     :disabled="chatStore.isTyping"
                 />
                 <button 
                     @click="handleSend"
                     :disabled="!messageInput.trim() || chatStore.isTyping"
-                    class="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-700 hover:text-white disabled:opacity-30 disabled:hover:text-neutral-700 transition-colors">
+                    class="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-700 hover:text-amber-500 disabled:opacity-30 disabled:hover:text-neutral-700 transition-colors">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-4 h-4">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
                     </svg>
@@ -112,14 +122,14 @@ const renderMarkdown = (text) => {
              <div class="max-w-2xl mx-auto mt-3 flex justify-between items-center px-1">
                  <div class="flex items-center gap-3">
                     <span class="text-[9px] text-neutral-700 uppercase tracking-[0.2em] flex items-center gap-2">
-                        <span class="w-1 h-1 bg-neutral-800 rounded-full animate-pulse"></span>
+                        <span class="w-1 h-1 bg-amber-500 rounded-full animate-pulse"></span>
                         MODO: {{ chatStore.mode }}
                     </span>
                  </div>
                   <button 
                         @click="chatStore.generateDraft(collection, slug)"
                         :disabled="chatStore.isTyping"
-                        class="text-[9px] font-bold px-3 py-1 border border-neutral-800 text-neutral-500 hover:text-neutral-200 hover:border-neutral-600 hover:bg-neutral-900 disabled:opacity-30 disabled:cursor-not-allowed transition-all uppercase tracking-[0.2em]"
+                        class="text-[9px] font-bold px-3 py-1.5 border border-neutral-800 text-neutral-500 hover:text-white hover:border-amber-500/50 hover:bg-neutral-900 disabled:opacity-30 disabled:cursor-not-allowed transition-all uppercase tracking-[0.2em]"
                     >
                         GENERAR BORRADOR
                     </button>

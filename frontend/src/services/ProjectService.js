@@ -1,6 +1,9 @@
 import api from './api';
 
 export default {
+    /**
+     * Get project metadata and status.
+     */
     async getProject(collection, slug) {
         try {
             const response = await api.get(`/${collection}/${slug}`);
@@ -11,6 +14,9 @@ export default {
         }
     },
 
+    /**
+     * List all projects across collections.
+     */
     async listProjects() {
         try {
             const response = await api.get('/projects/');
@@ -21,6 +27,9 @@ export default {
         }
     },
 
+    /**
+     * Create a new project.
+     */
     async createProject(name, collection, slug = null) {
         try {
             const response = await api.post('/projects/', {
@@ -35,29 +44,50 @@ export default {
         }
     },
 
-    async updateContent(collection, slug, content, metadata = null) {
-        try {
-            const response = await api.put(`/${collection}/${slug}`, {
-                content,
-                metadata
-            });
-            return response.data;
-        } catch (error) {
-            console.error('Error updating project content:', error);
-            throw error;
-        }
-    },
-
+    /**
+     * Get the markdown content of a project (Working Copy rules).
+     */
     async getProjectContent(collection, slug) {
         try {
             const response = await api.get(`/${collection}/${slug}/content`);
-            return response.data;
+            return response.data; // { content: "..." }
         } catch (error) {
             console.error('Error fetching project content:', error);
             throw error;
         }
     },
 
+    /**
+     * Persist manual or generated changes to the working copy.
+     */
+    async persistContent(collection, slug, content) {
+        try {
+            const response = await api.post(`/${collection}/${slug}/persist`, {
+                content
+            });
+            return response.data;
+        } catch (error) {
+            console.error('Error persisting content:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Promote the working copy to the portfolio.
+     */
+    async promoteProject(collection, slug) {
+        try {
+            const response = await api.post(`/${collection}/${slug}/promote`);
+            return response.data;
+        } catch (error) {
+            console.error('Error promoting project:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Forget internal memory.
+     */
     async forgetProject(collection, slug) {
         try {
             const response = await api.post(`/${collection}/${slug}/forget`);
@@ -68,6 +98,9 @@ export default {
         }
     },
 
+    /**
+     * Resurrect from internal memory.
+     */
     async resurrectProject(collection, slug) {
         try {
             const response = await api.post(`/${collection}/${slug}/resurrect`);
@@ -78,6 +111,9 @@ export default {
         }
     },
 
+    /**
+     * Revert working copy to portfolio version.
+     */
     async revertProject(collection, slug) {
         try {
             const response = await api.post(`/${collection}/${slug}/revert`);
@@ -88,26 +124,9 @@ export default {
         }
     },
 
-    async persistDraft(collection, slug) {
-        try {
-            const response = await api.post(`/${collection}/${slug}/persist`);
-            return response.data;
-        } catch (error) {
-            console.error('Error persisting draft:', error);
-            throw error;
-        }
-    },
-
-    async publishProject(collection, slug) {
-        try {
-            const response = await api.post(`/${collection}/${slug}/publish`);
-            return response.data;
-        } catch (error) {
-            console.error('Error publishing project:', error);
-            throw error;
-        }
-    },
-
+    /**
+     * Get the English translation content.
+     */
     async getTranslation(collection, slug) {
         try {
             const response = await api.get(`/${collection}/${slug}/translate`);
@@ -118,24 +137,30 @@ export default {
         }
     },
 
-    async updateTranslation(collection, slug, content) {
+    /**
+     * Persist changes to the English translation.
+     */
+    async persistTranslation(collection, slug, content) {
         try {
-            const response = await api.put(`/${collection}/${slug}/translate`, {
+            const response = await api.post(`/${collection}/${slug}/translate/persist`, {
                 content
             });
             return response.data;
         } catch (error) {
-            console.error('Error updating translation:', error);
+            console.error('Error persisting translation:', error);
             throw error;
         }
     },
 
-    async publishTranslation(collection, slug) {
+    /**
+     * Final publication (Git Ops).
+     */
+    async publishProject(collection, slug) {
         try {
-            const response = await api.post(`/${collection}/${slug}/publish-en`);
+            const response = await api.post(`/${collection}/${slug}/publish`);
             return response.data;
         } catch (error) {
-            console.error('Error publishing translation:', error);
+            console.error('Error publishing project:', error);
             throw error;
         }
     }

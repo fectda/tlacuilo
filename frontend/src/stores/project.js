@@ -32,12 +32,10 @@ export const useProjectStore = defineStore('project', () => {
     const fetchProject = async (collection, slug) => {
         loading.value = true
         error.value = null
-        currentTranslation.value = null // Reset translation logic on new project load
+        currentTranslation.value = null
         try {
             const data = await ProjectService.getProject(collection, slug)
             currentProject.value = data
-            // If the response includes history, we should probably update chat store too
-            // or let the view handle it. For now, just store the project data.
             return data
         } catch (e) {
             error.value = e.message || 'Failed to fetch project'
@@ -55,19 +53,16 @@ export const useProjectStore = defineStore('project', () => {
             return data
         } catch (e) {
             console.error('Fetch translation error:', e)
-            // It's okay if it fails (not exists yet), we handle UI accordingly
             currentTranslation.value = null
         }
     }
 
     const fetchContent = async (collection, slug) => {
-        // Architecture: GET /content returns content and status
         try {
             const data = await ProjectService.getProjectContent(collection, slug)
             if (currentProject.value) {
                 currentProject.value = { ...currentProject.value, ...data }
             } else {
-                // Determine minimal structure if project not loaded yet
                 currentProject.value = { collection, slug, ...data }
             }
             return data
@@ -92,28 +87,24 @@ export const useProjectStore = defineStore('project', () => {
         }
     }
 
-    const updateContent = async (collection, slug, content, metadata = null) => {
+    const persistContent = async (collection, slug, content) => {
         try {
-            const result = await ProjectService.updateContent(collection, slug, content, metadata)
-            // result might contain schema_check and spelling results
+            const result = await ProjectService.persistContent(collection, slug, content)
             if (currentProject.value && currentProject.value.slug === slug) {
                 currentProject.value.content = content
-                if (metadata) {
-                    currentProject.value.metadata = { ...currentProject.value.metadata, ...metadata }
-                }
-                // Store validation results if any
                 currentProject.value.validation = result.validation || null
+                currentProject.value.is_working_copy_active = true
             }
             return result
         } catch (e) {
-            console.error('Update error:', e)
+            console.error('Persist content error:', e)
             throw e
         }
     }
 
-    const updateTranslationContent = async (collection, slug, content) => {
+    const persistTranslation = async (collection, slug, content) => {
         try {
-            const result = await ProjectService.updateTranslation(collection, slug, content)
+            const result = await ProjectService.persistTranslation(collection, slug, content)
             if (currentTranslation.value) {
                 currentTranslation.value.content = content
             } else {
@@ -121,7 +112,21 @@ export const useProjectStore = defineStore('project', () => {
             }
             return result
         } catch (e) {
-            console.error('Update translation error:', e)
+            console.error('Persist translation error:', e)
+            throw e
+        }
+    }
+
+    const promoteProject = async (collection, slug) => {
+        try {
+            const result = await ProjectService.promoteProject(collection, slug)
+            if (currentProject.value) {
+                currentProject.value.is_working_copy_active = false
+                currentProject.value.doc_status = 'promovido'
+            }
+            return result
+        } catch (e) {
+            console.error('Promote error:', e)
             throw e
         }
     }
@@ -149,7 +154,7 @@ export const useProjectStore = defineStore('project', () => {
     const revertProject = async (collection, slug) => {
         try {
             const result = await ProjectService.revertProject(collection, slug)
-            await fetchContent(collection, slug) // Refresh content specifically as per architecture
+            await fetchContent(collection, slug)
             return result
         } catch (e) {
             console.error('Revert error:', e)
@@ -157,35 +162,15 @@ export const useProjectStore = defineStore('project', () => {
         }
     }
 
-    const persistDraft = async (collection, slug) => {
-        try {
-            const result = await ProjectService.persistDraft(collection, slug)
-            await fetchProject(collection, slug) // Refresh data
-            return result
-        } catch (e) {
-            console.error('Persist error:', e)
-            throw e
-        }
-    }
-
     const publishProject = async (collection, slug) => {
         try {
             const result = await ProjectService.publishProject(collection, slug)
-            await fetchProject(collection, slug) // Refresh data
+            if (currentProject.value) {
+                currentProject.value.doc_status = 'publicado'
+            }
             return result
         } catch (e) {
             console.error('Publish error:', e)
-            throw e
-        }
-    }
-
-    const publishTranslation = async (collection, slug) => {
-        try {
-            const result = await ProjectService.publishTranslation(collection, slug)
-            // Maybe refresh translation status?
-            return result
-        } catch (e) {
-            console.error('Publish translation error:', e)
             throw e
         }
     }
@@ -210,17 +195,16 @@ export const useProjectStore = defineStore('project', () => {
         fetchProjects,
         fetchProject,
         fetchTranslation,
+        fetchContent,
         createProject,
-        updateContent,
-        updateTranslationContent,
+        persistContent,
+        persistTranslation,
+        promoteProject,
         forgetProject,
         resurrectProject,
         revertProject,
-        persistDraft,
         publishProject,
-        publishTranslation,
         totalProjects,
-        isWorkingCopyActive,
-        fetchContent
+        isWorkingCopyActive
     }
 })

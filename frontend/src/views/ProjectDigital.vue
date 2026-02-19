@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useProjectStore } from '../stores/project'
 import { useChatStore } from '../stores/chat'
@@ -42,12 +42,9 @@ const currentContent = computed(() => {
 const toggleViewMode = async (mode) => {
     viewMode.value = mode
     if (mode === 'translation') {
-        // Ensure translation is loaded
         if (!projectStore.currentTranslation) {
             await projectStore.fetchTranslation(collection, slug)
         }
-        // Switch chat context/mode if necessary?
-        // ChatArea doesn't have a mode prop for 'translation', but we can pass a prop or use store
         chatStore.mode = 'translation' 
     } else {
         chatStore.mode = 'interview'
@@ -56,7 +53,7 @@ const toggleViewMode = async (mode) => {
 
 const handleStartTranslation = async () => {
     if (confirm('¿Iniciar traducción al inglés? Esto generará una propuesta basada en la versión publicada.')) {
-        await chatStore.startTranslation(collection, slug)
+        await chatStore.translateDraft(collection, slug, { from_scratch: true })
         await projectStore.fetchTranslation(collection, slug) // Refresh to see result
         viewMode.value = 'translation'
     }
@@ -64,7 +61,9 @@ const handleStartTranslation = async () => {
 
 const handlePublishTranslation = async () => {
      if (confirm('¿Publicar traducción al Portafolio?')) {
-        await projectStore.publishTranslation(collection, slug)
+        // In this architecture, publishing translation might be the same as publishing the project
+        // but focusing on English content. For now we use the general publish.
+        await projectStore.publishProject(collection, slug)
         alert('Traducción publicada.')
     }
 }
@@ -80,7 +79,6 @@ const handlePublish = async () => {
         await projectStore.publishProject(collection, slug)
     }
 }
-
 </script>
 
 <template>

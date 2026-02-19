@@ -11,15 +11,7 @@ export const useChatStore = defineStore('chat', () => {
 
     const loadHistory = (messages) => {
         error.value = null
-        if (messages && messages.length > 0) {
-            history.value = messages
-        } else {
-            // Initialize with local welcome message if history is empty
-            history.value = [{
-                role: 'assistant',
-                content: 'Hola, soy Tlacuilo. ¿En qué puedo ayudarte hoy a documentar?'
-            }]
-        }
+        history.value = messages || []
     }
 
     const fetchHistory = async (collection, slug) => {
@@ -27,7 +19,6 @@ export const useChatStore = defineStore('chat', () => {
         error.value = null
         try {
             const data = await ChatService.getHistory(collection, slug)
-            // Architecture says data should be { messages: [...] }
             const messages = data.messages || []
             loadHistory(messages)
             return messages
@@ -39,29 +30,48 @@ export const useChatStore = defineStore('chat', () => {
         }
     }
 
-    const sendMessage = async (collection, slug, text) => {
+    /**
+     * Initialize session. Should be called on mount if history is empty.
+     */
+    const initSession = async (collection, slug) => {
+        isTyping.value = true
+        error.value = null
+        try {
+            const response = await ChatService.initSession(collection, slug)
+            if (response && response.content) {
+                history.value.push(response)
+            }
+            return response
+        } catch (e) {
+            console.error('Init session error:', e)
+            error.value = e.message
+        } finally {
+            isTyping.value = false
+        }
+    }
+
+    const sendMessage = async (collection, slug, text, systemOnly = false) => {
         if (!text.trim()) return
 
-        history.value.push({ role: 'user', content: text })
+        // Local optimistic update (only for non-system messages)
+        if (!systemOnly) {
+            history.value.push({ role: 'user', content: text, timestamp: new Date().toISOString() })
+        }
+
         isTyping.value = true
         error.value = null
 
         try {
-            const response = await ChatService.sendMessage(collection, slug, text)
-
-            // Per ARCHITECTURE.md, the response format might vary. 
-            // If response is the full history: history.value = response
-            // If response is just the new message: history.value.push(response)
-
-            if (Array.isArray(response)) {
-                history.value = response
-            } else if (response && response.content) {
-                history.value.push(response)
-            } else {
-                // Fallback: reload history via project if needed, 
-                // but let's assume one of the above for now.
+            const payload = {
+                content: text,
+                system_only: systemOnly
             }
+            const response = await ChatService.sendMessage(collection, slug, payload)
 
+            if (response && response.content) {
+                history.value.push(response)
+            }
+            return response
         } catch (e) {
             error.value = e.message || 'Failed to send message'
             console.error('Send error:', e)
@@ -72,12 +82,13 @@ export const useChatStore = defineStore('chat', () => {
 
     const generateDraft = async (collection, slug) => {
         isTyping.value = true
+        error.value = null
         try {
             const response = await ChatService.generateDraft(collection, slug)
-            // Draft response might contain a message or the updated project state
-            if (response && response.message) {
-                history.value.push({ role: 'assistant', content: response.message })
-            }
+            // Draft response contains { content, status }
+            // The /draft endpoint calls /message internally with response_system_only: true
+            // so we should probably refresh history to see the hidden message if needed,
+            // but usually the AI doesn't send a visible message during draft gen.
             return response
         } catch (e) {
             console.error('Draft gen error:', e)
@@ -87,38 +98,14 @@ export const useChatStore = defineStore('chat', () => {
         }
     }
 
-    const refineTranslation = async (collection, slug, text) => {
-        if (!text.trim()) return
-
-        history.value.push({ role: 'user', content: text })
+    const translateDraft = async (collection, slug, payload) => {
         isTyping.value = true
-
+        error.value = null
         try {
-            const response = await ChatService.refineTranslation(collection, slug, text)
-            if (Array.isArray(response)) {
-                history.value = response
-            } else if (response && response.content) {
-                history.value.push(response)
-            }
-        } catch (e) {
-            error.value = e.message
-            console.error('Refine error:', e)
-        } finally {
-            isTyping.value = false
-        }
-    }
-
-    const startTranslation = async (collection, slug) => {
-        isTyping.value = true
-        try {
-            const response = await ChatService.translateProject(collection, slug)
-            // Ideally response contains the first content
-            if (response && response.message) {
-                history.value.push({ role: 'assistant', content: response.message })
-            }
+            const response = await ChatService.translateDraft(collection, slug, payload)
             return response
         } catch (e) {
-            console.error('Start translation error:', e)
+            console.error('Translate draft error:', e)
             error.value = e.message
         } finally {
             isTyping.value = false
@@ -140,10 +127,10 @@ export const useChatStore = defineStore('chat', () => {
         error,
         loadHistory,
         fetchHistory,
+        initSession,
         sendMessage,
         generateDraft,
-        refineTranslation,
-        startTranslation,
+        translateDraft,
         resetState
     }
 })

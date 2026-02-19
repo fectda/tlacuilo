@@ -1,5 +1,5 @@
 <script setup>
-import { defineProps, computed } from 'vue'
+import { computed } from 'vue'
 import { marked } from 'marked'
 import { useProjectStore } from '../../stores/project'
 
@@ -14,19 +14,21 @@ const renderMarkdown = (text) => {
 const handleManualSave = async () => {
     try {
         if (props.isTranslation) {
-             await projectStore.updateTranslationContent(props.collection, props.slug, props.content)
+             await projectStore.persistTranslation(props.collection, props.slug, props.content)
         } else {
-             await projectStore.updateContent(props.collection, props.slug, props.content)
+             await projectStore.persistContent(props.collection, props.slug, props.content)
         }
-        alert('Contenido guardado.')
+        // In a real app we might use a toast, but keeping it simple/premium as per rules
     } catch (e) {
         console.error(e)
     }
 }
 
-const handlePersist = async () => {
+const handlePromote = async () => {
     try {
-        await projectStore.persistDraft(props.collection, props.slug)
+        if (confirm('¿Estás seguro de promover este borrador al Portafolio?')) {
+            await projectStore.promoteProject(props.collection, props.slug)
+        }
     } catch (e) {
         console.error(e)
     }
@@ -36,10 +38,14 @@ const validation = computed(() => {
     if (props.isTranslation) return null
     return projectStore.currentProject?.validation || null
 })
+
+const isWorkingCopyActive = computed(() => {
+    return projectStore.currentProject?.is_working_copy_active || false
+})
 </script>
 
 <template>
-    <div class="flex flex-col h-full bg-[#050505] text-neutral-300 border-l border-white/5 relative">
+    <div class="flex flex-col h-full bg-[#050505] text-neutral-300 relative border-l border-white/5">
         <!-- Sticky Header -->
         <div class="flex items-center justify-between px-6 py-4 border-b border-white/5 bg-[#050505]/90 backdrop-blur-md z-10 sticky top-0">
             <div class="flex flex-col">
@@ -52,11 +58,11 @@ const validation = computed(() => {
             </div>
             
             <div class="flex gap-2">
-                 <button v-if="!isTranslation && projectStore.currentProject?.has_pending_draft"
-                    @click="handlePersist"
+                 <button v-if="!isTranslation && isWorkingCopyActive"
+                    @click="handlePromote"
                     class="flex items-center gap-2 text-[9px] font-bold px-3 py-1.5 bg-amber-500 text-black hover:bg-amber-400 transition-all uppercase tracking-widest shadow-[0_0_15px_rgba(245,158,11,0.2)]"
                 >
-                    Autorizar Sugerencia
+                    Promover al Portafolio
                 </button>
 
                 <button 
