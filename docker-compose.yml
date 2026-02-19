@@ -20,6 +20,7 @@ services:
     environment:
       - PORTAFOLIO_PATH=/home/tlacuilo/portfolio
       - PROJECTS_PATH=/home/tlacuilo/projects
+      - LLM_MODEL=${LLM_MODEL}
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"
