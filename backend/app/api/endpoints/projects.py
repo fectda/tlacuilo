@@ -1,9 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
-from typing import List, Dict, Any
-from app.services.project_service import ProjectService
-
-from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
+from pydantic import BaseModel
+from app.services.project_service import ProjectService
 
 router = APIRouter()
 
@@ -39,25 +37,4 @@ async def create_project(request: CreateProjectRequest, service: ProjectService 
     if "error" in result:
         raise HTTPException(status_code=result.get("status_code", 400), detail=result["error"])
         
-        
-    return result
-
-@router.post("/forget/{collection}/{slug}", response_model=Dict[str, Any])
-async def forget_project(collection: str, slug: str, service: ProjectService = Depends(get_project_service)):
-    """
-    Forget Action: Permanent deletion of local memory.
-    """
-    result = service.delete_project(collection, slug)
-    if "error" in result:
-        raise HTTPException(status_code=result.get("status_code", 400), detail=result["error"])
-    return result
-
-@router.post("/resurrect/{collection}/{slug}", response_model=Dict[str, Any])
-async def resurrect_project(collection: str, slug: str, service: ProjectService = Depends(get_project_service)):
-    """
-    Resurrect Action: Restore architectural file to portfolio.
-    """
-    result = service.resurrect_project(collection, slug)
-    if "error" in result:
-        raise HTTPException(status_code=result.get("status_code", 400), detail=result["error"])
     return result

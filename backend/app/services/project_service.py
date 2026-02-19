@@ -91,6 +91,7 @@ class ProjectService:
         self._write_json(local_dir / "chat_history.json", [])
         self._write_json(local_dir / "doc_state.json", {
             "doc_status": "borrador",
+            "is_working_copy_active": False,
             "last_update": datetime.now().isoformat(),
             "pila_de_pendientes": ["Redactar contenido inicial"]
         })
@@ -129,7 +130,6 @@ class ProjectService:
         except Exception as e:
             logger.error(f"Error deleting project {slug}: {e}")
             return {"error": str(e), "status_code": 500}
-
     def resurrect_project(self, collection: str, slug: str) -> Dict[str, Any]:
         """
         Resurrect Action: Restores the .md file from local memory to the portfolio.
@@ -142,34 +142,14 @@ class ProjectService:
         portfolio_dir = self.portfolio_content / collection / slug
         portfolio_dir.mkdir(parents=True, exist_ok=True)
 
-        # Establish local_md path (even if it doesn't exist yet)
         local_md = local_dir / f"{slug}.md"
         
-        # If local .md is missing, regenerate it!
-        if not local_md.exists() and not (local_dir / "index.md").exists():
-            logger.info(f"Local .md missing for {slug}, regenerating from template/defaults...")
-            template = self._find_template(collection)
-            name = slug.replace("-", " ").title()
+        # If local .md is missing, try index.md
+        if not local_md.exists() and (local_dir / "index.md").exists():
+            local_md = local_dir / "index.md"
             
-            if template:
-                content = template.read_text()
-                if "TITLE_PLACEHOLDER" in content:
-                    content = content.replace("TITLE_PLACEHOLDER", name)
-                else:
-                    content = re.sub(r'^title:\s*".*"', f'title: "{name}"', content, flags=re.MULTILINE)
-                local_md.write_text(content)
-            else:
-                post = frontmatter.Post("", title=name, description="Resurrected via Tlacuilo", 
-                                       date=datetime.now().strftime("%Y-%m-%d"), draft=True, type=collection.upper())
-                local_md.write_bytes(frontmatter.dumps(post).encode('utf-8'))
-
-        # Check for index.md if slug.md still doesn't exist (unlikely now, but safe)
         if not local_md.exists():
-             if (local_dir / "index.md").exists():
-                 local_md = local_dir / "index.md"
-             else:
-                 # Should not happen given logic above, but fail safe
-                 return {"error": "Failed to generate local .md file", "status_code": 500}
+             return {"error": "Local .md file not found to resurrect", "status_code": 404}
 
         target_md = portfolio_dir / f"{slug}.md"
         
@@ -190,6 +170,203 @@ class ProjectService:
         except Exception as e:
             logger.error(f"Error resurrecting project {slug}: {e}")
             return {"error": str(e), "status_code": 500}
+
+    def get_project_state(self, collection: str, slug: str) -> Dict[str, Any]:
+        """Reads the doc_state.json for a project."""
+        state_file = self.local_path / collection / slug / "doc_state.json"
+        if not state_file.exists():
+            return {"doc_status": "borrador", "is_working_copy_active": False}
+        try:
+            return json.loads(state_file.read_text())
+        except:
+            return {"doc_status": "borrador", "is_working_copy_active": False}
+
+    def update_project_state(self, collection: str, slug: str, updates: Dict[str, Any]):
+        """Updates doc_state.json with new values."""
+        local_dir = self.local_path / collection / slug
+        local_dir.mkdir(parents=True, exist_ok=True)
+        state_file = local_dir / "doc_state.json"
+        
+        state = self.get_project_state(collection, slug)
+        state.update(updates)
+        state["last_update"] = datetime.now().isoformat()
+        self._write_json(state_file, state)
+
+    def get_working_copy(self, collection: str, slug: str) -> Dict[str, Any]:
+        """
+        Implementation of the Precedence Logic:
+        1. If is_working_copy_active: true -> Read local {slug}.md
+        2. If false -> Read from Portfolio, hydrate local if needed.
+        3. If nothing -> Load template.
+        """
+        local_dir = self.local_path / collection / slug
+        local_md = local_dir / f"{slug}.md"
+        portfolio_dir = self.portfolio_content / collection / slug
+        portfolio_md = self._find_md_in_folder(portfolio_dir, slug)
+        
+        state = self.get_project_state(collection, slug)
+        is_active = state.get("is_working_copy_active", False)
+
+        content = ""
+        source = "unknown"
+
+        if is_active and local_md.exists():
+            content = local_md.read_text()
+            source = "local_active"
+        elif portfolio_md and portfolio_md.exists():
+            content = portfolio_md.read_text()
+            source = "portfolio"
+            # Hydrate/Update local if active flag is false but portfolio exists
+            local_dir.mkdir(parents=True, exist_ok=True)
+            local_md.write_text(content)
+        elif local_md.exists():
+            # Fallback for orphan or just local existence
+            content = local_md.read_text()
+            source = "local_orphan"
+        else:
+            # New Project / Template
+            template = self._find_template(collection)
+            if template:
+                content = template.read_text()
+                # Placeholder replacement
+                name = slug.replace("-", " ").title()
+                content = content.replace("TITLE_PLACEHOLDER", name)
+                source = "template"
+            else:
+                content = f"---\ntitle: {slug}\ndraft: true\n---\n\nNuevo proyecto {slug}."
+                source = "minimal"
+
+        # Load chat history
+        history_file = local_dir / "chat_history.json"
+        history = []
+        if history_file.exists():
+            try: history = json.loads(history_file.read_text())
+            except: pass
+        
+        return {
+            "content": content,
+            "source": source,
+            "state": state,
+            "history": history
+        }
+
+    def revert_working_copy(self, collection: str, slug: str) -> Dict[str, Any]:
+        """
+        POST .../revert: Deletes local {slug}.md and replaces with Portfolio version.
+        Resets is_working_copy_active to false.
+        """
+        local_dir = self.local_path / collection / slug
+        local_md = local_dir / f"{slug}.md"
+        portfolio_dir = self.portfolio_content / collection / slug
+        portfolio_md = self._find_md_in_folder(portfolio_dir, slug)
+
+        if not portfolio_md or not portfolio_md.exists():
+            return {"error": "No portfolio version to revert to", "status_code": 404}
+
+        # Copy portfolio to local
+        shutil.copy2(portfolio_md, local_md)
+        
+        # Reset flag
+        self.update_project_state(collection, slug, {"is_working_copy_active": False})
+        
+        return {"status": "reverted", "source": "portfolio"}
+
+    def save_working_copy(self, collection: str, slug: str, content: str) -> Dict[str, Any]:
+        """
+        PUT .../{slug}: Manual Save.
+        Includes Schema Validator (against templates) and Spellcheck placeholder.
+        """
+        # 1. Schema Validation (Simplified against template structure)
+        if not content.strip().startswith("---"):
+             return {"error": "Invalid Markdown: Missing frontmatter (must start with ---)", "status_code": 400}
+        
+        # In a real scenario, we'd use frontmatter.load and check keys against template
+        try:
+            post = frontmatter.loads(content)
+            required_keys = ["title", "description", "draft"]
+            missing = [k for k in required_keys if k not in post.metadata]
+            if missing:
+                logger.warning(f"Project {slug} saved with missing metadata keys: {missing}")
+        except Exception as e:
+            return {"error": f"Metadata parsing error: {str(e)}", "status_code": 400}
+        
+        # 2. Spellcheck (Placeholder)
+        # TODO: Integrate with a library like pyspellchecker or an external API
+        logger.info(f"Spellcheck running for {slug}... No errors found (Placeholder)")
+        
+        local_dir = self.local_path / collection / slug
+        local_dir.mkdir(parents=True, exist_ok=True)
+        local_md = local_dir / f"{slug}.md"
+        
+        local_md.write_text(content)
+        
+        # Update state
+        self.update_project_state(collection, slug, {"is_working_copy_active": True})
+        
+        return {"status": "saved", "path": str(local_md)}
+
+    def publish_project(self, collection: str, slug: str) -> Dict[str, Any]:
+        """
+        POST .../publish: Promote local working copy to portfolio.
+        """
+        local_dir = self.local_path / collection / slug
+        local_md = local_dir / f"{slug}.md"
+        
+        if not local_md.exists():
+            return {"error": "No working copy to publish", "status_code": 404}
+            
+        portfolio_dir = self.portfolio_content / collection / slug
+        portfolio_dir.mkdir(parents=True, exist_ok=True)
+        target_md = portfolio_dir / f"{slug}.md"
+        
+        shutil.copy2(local_md, target_md)
+        
+        # Reset flag
+        self.update_project_state(collection, slug, {
+            "is_working_copy_active": False,
+            "doc_status": "revisión" # Example transition
+        })
+        
+        return {"status": "published", "path": str(target_md)}
+
+    def get_translation_copy(self, collection: str, slug: str) -> Dict[str, Any]:
+        """GET .../translate: Reads the English working copy ({slug}.en.md)"""
+        local_dir = self.local_path / collection / slug
+        en_md = local_dir / f"{slug}.en.md"
+        
+        if not en_md.exists():
+            # Try to find in portfolio if it exists
+            portfolio_en = self.portfolio_content / collection / "en" / f"{slug}.md"
+            if portfolio_en.exists():
+                content = portfolio_en.read_text()
+                en_md.write_text(content)
+                return {"content": content, "source": "portfolio_en"}
+            return {"error": "Translation copy not found", "status_code": 404}
+            
+        return {"content": en_md.read_text(), "source": "local_en"}
+
+    def save_translation_copy(self, collection: str, slug: str, content: str) -> Dict[str, Any]:
+        """PUT .../translate: Manual save of English version."""
+        local_dir = self.local_path / collection / slug
+        local_dir.mkdir(parents=True, exist_ok=True)
+        en_md = local_dir / f"{slug}.en.md"
+        en_md.write_text(content)
+        return {"status": "saved", "path": str(en_md)}
+
+    def publish_translation(self, collection: str, slug: str) -> Dict[str, Any]:
+        """POST .../publish-en: Finalize translation and move to portfolio."""
+        local_dir = self.local_path / collection / slug
+        en_md = local_dir / f"{slug}.en.md"
+        if not en_md.exists():
+            return {"error": "No English version to publish", "status_code": 404}
+            
+        target_dir = self.portfolio_content / collection / "en"
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target_md = target_dir / f"{slug}.md"
+        
+        shutil.copy2(en_md, target_md)
+        return {"status": "published_en", "path": str(target_md)}
+
 
     def _process_project(self, col: str, slug: str, md_file: Path, grouped: dict, seen: dict):
         if slug in seen[col]:
@@ -226,6 +403,7 @@ class ProjectService:
             self._write_json(local_dir / "chat_history.json", history)
             self._write_json(local_dir / "doc_state.json", {
                 "doc_status": "borrador",
+                "is_working_copy_active": False,
                 "last_update": datetime.now().isoformat(),
                 "pila_de_pendientes": []
             })
@@ -235,8 +413,12 @@ class ProjectService:
         doc_state_file = local_dir / "doc_state.json"
         
         status = "borrador"
+        is_active = False
         if doc_state_file.exists():
-            try: status = json.loads(doc_state_file.read_text()).get("doc_status", "borrador")
+            try:
+                state = json.loads(doc_state_file.read_text())
+                status = state.get("doc_status", "borrador")
+                is_active = state.get("is_working_copy_active", False)
             except: pass
 
         if not md_file:
@@ -258,6 +440,7 @@ class ProjectService:
                 "name": slug.title(), 
                 "description": "Memoria local sin archivo de metadatos.",
                 "doc_status": status,
+                "is_working_copy_active": is_active,
                 "published": False,
                 "type": col,
                 "missing_files": True, # Specific flag for UI
@@ -274,6 +457,7 @@ class ProjectService:
                 "name": post.metadata.get("title") or slug,
                 "description": post.metadata.get("description", ""),
                 "doc_status": status,
+                "is_working_copy_active": is_active,
                 "published": not post.metadata.get("draft", True),
                 "type": col,
                 "missing_files": False

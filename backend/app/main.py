@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.endpoints import projects, system
+from app.api.endpoints import projects, system, content
 
 app = FastAPI(
     title="Tlacuilo Backend",
@@ -20,6 +20,7 @@ app.add_middleware(
 # Include routers
 app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
 app.include_router(system.router, prefix="/api/system", tags=["system"])
+app.include_router(content.router, prefix="/api", tags=["content"])
 
 
 @app.get("/")
