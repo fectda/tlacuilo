@@ -168,7 +168,7 @@ El frontend debe llamar a estos dos endpoints en paralelo al cargar un proyecto.
     -   **Base de Conocimiento**:
         -   System Prompt: `prompts/system/tlacuilo_digital.md`
     -   **Escenarios de Negocio**:
-        1.  **Lienzo en Blanco (Nuevo)**: Historial vacío -> Construye Payload con System Prompt -> Llama internamente a `/message` (Trigger oculto).
+        1.  **Lienzo en Blanco (Nuevo)**: Historial vacío -> Construye Payload con System Prompt y el Strategy Prompt correspondiente a la colección y md del proyecto para generar el contexto inicial -> Llama internamente a `/message` (Trigger oculto).
         2.  **Deuda Técnica (Interrumpido)**: Último msg User -> Llama internamente a `/message` (sin input nuevo) para procesar pendiente.
         3.  **Esperando al Humano**: Último msg Asistente -> Retorno temprano (No llama a message).
     -   **Contrato de Respuesta**:
@@ -200,7 +200,8 @@ El frontend debe llamar a estos dos endpoints en paralelo al cargar un proyecto.
     -   **Proceso Interno**:
         1.  **Recuperación de Contexto**:
             -   Obtiene el MD actual siguiendo las mismas reglas de precedencia que `GET /api/{collection}/{slug}/content`.
-            -   Carga el **Template** estructural del documento.
+            -   Carga el **Template** estructural del documento desde el portafolio no el local.
+            -   Carga el **Template** de recursos del documento desde el portafolio no el local.
             -   Carga el **System Prompt Template** específico para generación de borrador (instrucciones de forzado de formato MD): `prompts/strategies/draft_generation.md`.
         2.  **Construcción de Prompt**: Crea un mensaje de sistema instruyendo "Genera solo MD final...".
         3.  **Delegación a `/message`**: Llama internamente a `/message` con:
