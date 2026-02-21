@@ -262,18 +262,42 @@ El frontend debe llamar a estos dos endpoints en paralelo al cargar un proyecto.
     -   **Respuesta**: `{ "content": "..." }`. 
 
 -   `POST /api/{collection}/{slug}/translate/draft`: **Generación/Refinamiento (Inglés)**.
-    -   **Responsabilidad**: Generar la primera versión en Inglés O refinar un borrador existente.
+    -   **Responsabilidad**: Generar la primera versión en Inglés O refinar un borrador existente usando el **The Bilingual Scribe**.
     -   **Input**: `{ "from_scratch": boolean, "instruction": "string (requerido si from_scratch es false)", "current_draft": "string (requerido si from_scratch es false)" }`.
+    -   **Uso de Prompts (Orquestación)**:
+        1.  **System Prompt**: `prompts/system/tlacuilo_global.md` (Define identidad y reglas de translocalización).
+        2.  **Strategy Prompt**: `prompts/strategies/english_translation.md` (Define el contexto de operación y reglas de salida).
     -   **Lógica de Negocio**:
         1.  **Traducción Directa (`from_scratch: true`)**:
-            -   Ignora `instruction` y `current_draft`.
-            -   **Contexto**: Solo `{slug}.md` (Fuente).
-            -   **Prompt**: System Prompt de Traducción + "contexto" + "instrucciones de formato".
+            -   **Prompt de Usuario**: Instruye traducir el `source_content` (Español) íntegro.
+            -   **Comportamiento**: Ignora draft previo y se enfoca en la fidelidad al original.
         2.  **Refinamiento (`from_scratch: false`)**:
-            -   Requiere `instruction` (Feedback Usuario) y `current_draft` (Estado actual del editor).
-            -   **Contexto**: `{slug}.md` (Fuente) + `current_draft` (Target) + `instruction`.
-            -   **Prompt**: System Prompt + "Contexto" + "instrucciones de formato".
-    -   **Output**: `{ "content": "..." }`. NO guarda en disco. 
+            -   **Prompt de Usuario**: Combina el `source_content`, el `current_draft` y la `instruction` del usuario.
+            -   **Comportamiento**: Prioriza la instrucción específica manteniendo coherencia con la fuente.
+    -   **Construcción del Payload (Prompting)**:
+        1.  **System Message**: Fusión de `tlacuilo_global.md` (Identidad) + `english_translation.md` (Estrategia).
+        2.  **User Message (from_scratch: true)**:
+            ```text
+            Translate the FOLLOWING source content to English:
+            ---
+            {source_content}
+            ---
+            ```
+        3.  **User Message (from_scratch: false)**:
+            ```text
+            SOURCE CONTENT (Spanish):
+            ---
+            {source_content}
+            ---
+            CURRENT DRAFT (English):
+            ---
+            {current_draft}
+            ---
+            USER INSTRUCTION: {instruction}
+            
+            Please REFINE the English draft according to the instruction, ensuring alignment with the source content.
+            ```
+    -   **Output**: `{ "content": "..." }`. NO guarda en disco. La respuesta de la IA debe empezar directamente con el Frontmatter (`---`).
 
 -   `POST /api/{collection}/{slug}/translate/persist`: **Autorización de Cambios (Persistencia Inglés)**.
     -   **Responsabilidad**: Validar el contenido (contra plantilla) y SOBREESCRIBIR el archivo `{slug}.en.md` físico (Copia de Trabajo), activando obligatoriamente el estado de sesión.
@@ -350,12 +374,45 @@ Tlacuilo gestiona las discrepancias entre la **Verdad Externa** (Portafolio) y l
 > **Regla de Oro**: El Portafolio manda. Tlacuilo nunca sobreescribe el Portafolio automáticamente al arrancar. Solo escribe cuando el usuario ejecuta explícitamente una acción de "Guardar", "Generar" o "Restaurar".
 
 ---
-## 5. Roles de Agentes
+## 5. Arquitectura de Prompts (Prompts as Code)
+
+Tlacuilo utiliza un sistema de **Prompts Composicionales**, donde la instrucción final enviada al LLM se construye dinámicamente combinando un Role (Persona) y una Strategy (Contextual).
+
+### A. Catálogo de Prompts
+| Tipo | Archivo | Funcionalidad |
+| :--- | :--- | :--- |
+| **System** | `prompts/system/tlacuilo_digital.md` | Persona "El Escriba Fiel" (Español). Tono de taller y mentor. |
+| **System** | `prompts/system/tlacuilo_global.md` | Persona "The Bilingual Scribe" (Inglés). Traductor técnico. |
+| **Strategy** | `prompts/strategies/atoms_bits_strategy.md` | Lógica de entrevista/extracción para proyectos técnicos. |
+| **Strategy** | `prompts/strategies/mind_strategy.md` | Lógica de extracción para ensayos y reflexiones. |
+| **Strategy** | `prompts/strategies/draft_generation.md` | Instrucciones de ensamblaje final y blindaje de Frontmatter. |
+| **Strategy** | `prompts/strategies/english_translation.md` | Reglas de translocalización técnica y preservación de términos. |
+
+### B. Mapeo de Servicios vs Prompts
+El Backend orquesta la inyección según el endpoint:
+
+| Endpoint | System Prompt (Role) | Strategy Prompt (Context) |
+| :--- | :--- | :--- |
+| `/init` | `tlacuilo_digital.md` | `atoms_bits_strategy.md` o `mind_strategy.md` |
+| `/message` | `tlacuilo_digital.md` | Seguimiento de la estrategia cargada en sesión. |
+| `/draft` | `tlacuilo_digital.md` | `draft_generation.md` + Strategy de Colección. |
+| `/translate/draft` | `tlacuilo_global.md` | `english_translation.md`. |
+
+### C. Reglas de Construcción de Prompts
+Para mantener la calidad de la asistencia, todo prompt en Tlacuilo debe seguir estos axiomas:
+
+1.  **Zero Tolerancia a la Invención**: Se prohíbe explícitamente al asistente inventar componentes, pasos o resultados. "Prefiere preguntar que alucinar".
+2.  **Tono de Ingeniería Forense**: El lenguaje debe ser técnico, seco y orientado a la evidencia (evitar el "misticismo" o "poesía" excesiva).
+3.  **Blindaje de Estructura**: Las instrucciones deben forzar la salida en bloques de código limpios, prohibiendo el uso de iconos en llaves de Frontmatter o estructuras de datos.
+4.  **Prioridad de la Verdad Loca**: El contenido del archivo `.md` actual siempre tiene jerarquía sobre lo que el LLM crea que es "lo normal" para un sensor o código.
+
+---
+## 6. Roles de Agentes
 Para la implementación técnica de este sistema, se definen dos roles de liderazgo:
 - **Arquitecto**: Define el "cómo" técnico, diseña los prompts y asegura la coherencia con esta arquitectura.
 - **Orquestador**: Gestiona el "cuándo" y el "quién", delegando tareas y validando resultados.
 
-## 6. Gestión del Entorno (Infraestructura)
+## 7. Gestión del Entorno (Infraestructura)
 
 Para garantizar la estabilidad del sistema y la correcta carga de configuraciones, se ha establecido un protocolo estricto de ejecución:
 
