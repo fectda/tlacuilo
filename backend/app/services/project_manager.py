@@ -127,8 +127,14 @@ class ProjectManager:
         return {"content": content, "source": "template", "state": state}
 
     def save_working_copy(self, collection: str, slug: str, content: str) -> Dict[str, Any]:
-        schema_error = self.validator.validate_schema(content)
-        spell_errors = self.validator.check_spelling(content)
+        schema_error = self.validator.validate_schema(content, collection)
+        
+        if schema_error:
+            return {
+                "status": "rejected",
+                "error": f"Validación estructural fallida: {schema_error}",
+                "status_code": 400
+            }
         
         project_dir = self.repo.get_project_dir(collection, slug)
         local_md = project_dir / f"{slug}.md"
@@ -141,10 +147,7 @@ class ProjectManager:
         
         return {
             "status": "saved",
-            "validation": {
-                "schema_check": {"valid": schema_error is None, "error": schema_error},
-                "spellcheck": {"errors": spell_errors}
-            }
+            "id": slug
         }
 
     def publish_project(self, collection: str, slug: str) -> Dict[str, Any]:
@@ -155,7 +158,7 @@ class ProjectManager:
             return {"error": "No working copy to publish", "status_code": 404}
             
         content = self.repo.read_text(local_md)
-        error = self.validator.validate_schema(content)
+        error = self.validator.validate_schema(content, collection)
         if error:
             return {"error": f"Schema Validation Failed: {error}", "status_code": 400}
             
@@ -167,7 +170,7 @@ class ProjectManager:
             "doc_status": "promovido"
         })
         
-        return {"status": "published", "path": str(target_md)}
+        return {"id": slug, "status": "published", "path": str(target_md)}
 
     def revert_working_copy(self, collection: str, slug: str) -> Dict[str, Any]:
         project_dir = self.repo.get_project_dir(collection, slug)
@@ -182,9 +185,9 @@ class ProjectManager:
         
         self.repo.save_doc_state(project_dir, {
             "is_working_copy_active": False,
-            "doc_status": "sincronizado"
+            "doc_status": "revisión"
         })
-        return {"status": "reverted"}
+        return {"status": "reverted", "content": content}
 
     def delete_project(self, collection: str, slug: str):
         project_dir = self.repo.get_project_dir(collection, slug)

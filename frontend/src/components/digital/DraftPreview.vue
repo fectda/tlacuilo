@@ -10,6 +10,14 @@ const chatStore = useChatStore()
 const isSaving = ref(false)
 const isEditing = ref(false)
 const localContent = ref(props.content || '')
+const persistError = ref(null)
+
+const isDirty = computed(() => {
+    const savedContent = props.isTranslation 
+        ? (projectStore.currentTranslation?.content || '')
+        : (projectStore.currentProject?.content || '')
+    return localContent.value !== savedContent
+})
 
 // Sync with props when not editing
 watch(() => props.content, (newVal) => {
@@ -32,9 +40,10 @@ const handleManualSave = async () => {
              await projectStore.persistContent(props.collection, props.slug, localContent.value)
         }
         isEditing.value = false // Exit edit mode on save
+        persistError.value = null
     } catch (e) {
         console.error(e)
-        alert('Error saving content: ' + e.message)
+        persistError.value = e.response?.data?.detail || e.message
     } finally {
         isSaving.value = false
     }
@@ -43,10 +52,12 @@ const handleManualSave = async () => {
 const handlePromote = async () => {
     try {
         if (confirm('¿Estás seguro de promover este borrador al Portafolio?')) {
+            persistError.value = null
             await projectStore.promoteProject(props.collection, props.slug)
         }
     } catch (e) {
         console.error(e)
+        persistError.value = e.response?.data?.detail || e.message
     }
 }
 
@@ -62,7 +73,12 @@ const isWorkingCopyActive = computed(() => {
 const emit = defineEmits(['draft-generated', 'discard-draft'])
 
 const handleDiscard = () => {
-    if (confirm('¿Descartar el borrador generado y volver al original?')) {
+    if (confirm('¿Descartar los cambios actuales y volver a la versión guardada?')) {
+        const savedContent = props.isTranslation 
+            ? (projectStore.currentTranslation?.content || '')
+            : (projectStore.currentProject?.content || '')
+        localContent.value = savedContent
+        isEditing.value = false
         emit('discard-draft')
     }
 }
@@ -96,29 +112,32 @@ const handleGenerateDraft = async () => {
             </div>
         </div>
 
-        <div v-if="chatStore.draftError" class="absolute inset-0 z-[100] flex items-center justify-center bg-red-950/20 backdrop-blur-sm">
-            <div class="max-w-md w-full mx-4 border-2 border-red-500/50 bg-black p-8 shadow-[0_0_30px_rgba(239,68,68,0.2)] skew-x-[-2deg]">
-                <div class="flex items-center gap-3 mb-4">
-                    <div class="w-1.5 h-6 bg-red-500"></div>
-                    <span class="text-xs font-black tracking-[0.3em] text-red-500 uppercase">GENERATION_FAILURE</span>
-                </div>
-                <p class="text-sm text-neutral-400 font-mono mb-6 leading-relaxed whitespace-pre-wrap">
-                    {{ chatStore.draftError }}
-                </p>
-                <div class="flex gap-3">
-                    <button 
-                        @click="handleGenerateDraft"
-                        class="text-[10px] flex-1 bg-red-500 text-white hover:bg-red-600 px-4 py-2 transition-all uppercase tracking-widest font-bold">
-                        REINTENTAR
-                    </button>
-                    <button 
-                        @click="chatStore.draftError = null"
-                        class="text-[10px] flex-1 border border-white/20 text-white/50 hover:border-white/40 hover:text-white px-4 py-2 transition-all uppercase tracking-widest font-bold">
-                        CERRAR
-                    </button>
+            <div v-if="chatStore.draftError || persistError" class="absolute inset-0 z-[100] flex items-center justify-center bg-red-950/20 backdrop-blur-sm">
+                <div class="max-w-md w-full mx-4 border-2 border-red-500/50 bg-black p-8 shadow-[0_0_30px_rgba(239,68,68,0.2)] skew-x-[-2deg]">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-1.5 h-6 bg-red-500"></div>
+                        <span class="text-xs font-black tracking-[0.3em] text-red-500 uppercase">
+                            {{ chatStore.draftError ? 'GENERATION_FAILURE' : 'VALIDATION_ERROR' }}
+                        </span>
+                    </div>
+                    <p class="text-sm text-neutral-400 font-mono mb-6 leading-relaxed whitespace-pre-wrap">
+                        {{ chatStore.draftError || persistError }}
+                    </p>
+                    <div class="flex gap-3">
+                        <button 
+                            @click="chatStore.draftError ? handleGenerateDraft() : persistError = null"
+                            class="text-[10px] flex-1 bg-red-500 text-white hover:bg-red-600 px-4 py-2 transition-all uppercase tracking-widest font-bold">
+                            {{ chatStore.draftError ? 'REINTENTAR' : 'ENTENDIDO' }}
+                        </button>
+                        <button 
+                            v-if="chatStore.draftError"
+                            @click="chatStore.draftError = null"
+                            class="text-[10px] flex-1 border border-white/20 text-white/50 hover:border-white/40 hover:text-white px-4 py-2 transition-all uppercase tracking-widest font-bold">
+                            CERRAR
+                        </button>
+                    </div>
                 </div>
             </div>
-        </div>
 
         <!-- Terminal Header -->
         <div class="flex items-center justify-between px-4 py-3 bg-[#05080a] border-b border-white/10 z-10 sticky top-0">
@@ -136,39 +155,34 @@ const handleGenerateDraft = async () => {
             
             <div class="flex items-center gap-2">
                 <button 
-                    v-if="!isTranslation"
+                    v-if="!isTranslation && !isEditing"
                     @click="handleGenerateDraft"
                     :disabled="chatStore.isTyping || isEditing || chatStore.isDrafting"
-                    class="text-[9px] bg-white/5 border border-white/10 hover:bg-accent hover:text-black hover:border-accent hover:shadow-glow-accent px-3 py-1 transition-all uppercase tracking-widest font-mono disabled:opacity-30 disabled:cursor-not-allowed">
-                    [ GENERATE DRAFT ]
+                    class="text-[9px] bg-white/5 border border-white/10 hover:bg-accent hover:text-black hover:border-accent hover:shadow-glow-accent px-2 py-0.5 transition-all uppercase tracking-widest font-mono disabled:opacity-30 disabled:cursor-not-allowed">
+                    [ GENERAR BORRADOR ]
                 </button>
                 <button 
                     @click="isEditing = !isEditing"
                     :disabled="chatStore.isDrafting"
-                    class="text-[9px] bg-white/5 border border-white/10 hover:bg-white/10 px-3 py-1 transition-all uppercase tracking-widest font-mono disabled:opacity-30 disabled:cursor-not-allowed">
-                    {{ isEditing ? '[ PREVIEW ]' : '[ EDIT MODE ]' }}
+                    class="text-[9px] bg-white/5 border border-white/10 hover:bg-white/10 px-2 py-0.5 transition-all uppercase tracking-widest font-mono disabled:opacity-30 disabled:cursor-not-allowed">
+                    {{ isEditing ? '[ PREVISUALIZAR ]' : '[ MODO EDICIÓN ]' }}
                 </button>
 
-                <button v-if="!isTranslation && isWorkingCopyActive"
-                    @click="handlePromote"
-                    class="text-[9px] bg-amber-900/20 border border-amber-500/30 text-amber-500 hover:bg-amber-500 hover:text-black px-3 py-1 transition-all uppercase tracking-widest font-mono flex items-center gap-1">
-                    <span>PROMOTE</span>
-                </button>
-
-                 <button 
-                    v-if="!isTranslation && props.content && !isEditing"
-                    @click="handleDiscard"
-                    class="text-[9px] bg-red-900/10 border border-red-500/20 text-red-500/70 hover:bg-red-500/20 hover:text-red-500 px-3 py-1 transition-all uppercase tracking-widest font-mono">
-                    [ DESCARTAR ]
-                </button>
-
-                 <button 
-                    @click="handleManualSave"
-                    :disabled="isSaving"
-                    class="text-[9px] bg-white/5 border border-white/10 hover:bg-green-500/20 hover:text-green-400 hover:border-green-500/50 px-3 py-1 transition-all uppercase tracking-widest font-mono flex items-center gap-1">
-                    <span v-if="isSaving" class="animate-spin">⟳</span>
-                    <span>{{ isSaving ? 'SAVING...' : 'SAVE DISK' }}</span>
-                </button>
+                <!-- Dirty Actions -->
+                <template v-if="isDirty">
+                    <button 
+                        @click="handleDiscard"
+                        class="text-[9px] bg-white/5 border border-red-500/20 hover:bg-red-500/10 text-red-400 hover:border-red-500/50 px-2 py-0.5 transition-all uppercase tracking-widest font-mono">
+                        [ DESCARTAR ]
+                    </button>
+                    <button 
+                        @click="handleManualSave"
+                        :disabled="isSaving"
+                        class="text-[9px] bg-white/5 border border-green-500/20 hover:bg-green-500/10 text-green-400 hover:border-green-500/50 px-2 py-0.5 transition-all uppercase tracking-widest font-mono flex items-center gap-1">
+                        <span v-if="isSaving" class="animate-spin text-[8px]">⟳</span>
+                        <span>{{ isSaving ? 'GUARDANDO...' : 'GUARDAR EN DISCO' }}</span>
+                    </button>
+                </template>
             </div>
         </div>
 

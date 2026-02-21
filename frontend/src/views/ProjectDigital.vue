@@ -10,6 +10,7 @@ const route = useRoute()
 const projectStore = useProjectStore()
 const chatStore = useChatStore()
 const { collection, slug } = route.params
+const previewRef = ref(null)
 
 onMounted(async () => {
     try {
@@ -92,6 +93,16 @@ const handlePublish = async () => {
     }
 }
 
+const handleChildSave = async () => {
+    if (previewRef.value) {
+        await previewRef.value.handleManualSave()
+    }
+}
+
+const handleDiscardDraft = () => {
+    temporaryDraft.value = null
+}
+
 // Clear temporary draft when changing view modes or reverting
 watch(viewMode, () => temporaryDraft.value = null)
 watch(() => projectStore.currentProject?.content, () => temporaryDraft.value = null)
@@ -114,12 +125,16 @@ watch(() => projectStore.currentProject?.content, () => temporaryDraft.value = n
                 
                 <!-- Status & Mode Indicators -->
                 <div class="flex items-center gap-2">
-                    <span v-if="projectStore.isWorkingCopyActive && viewMode === 'original'" 
+                    <span v-if="projectStore.currentProject?.doc_status === 'promovido' && viewMode === 'original'"
+                          class="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-0.5 text-[10px] tracking-tighter uppercase font-bold">
+                        Promovido
+                    </span>
+                    <span v-else-if="projectStore.isWorkingCopyActive && viewMode === 'original'" 
                           class="bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2 py-0.5 text-[10px] tracking-tighter uppercase">
                         Copia de Trabajo
                     </span>
                     <span v-else-if="viewMode === 'original'"
-                          class="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2 py-0.5 text-[10px] tracking-tighter uppercase">
+                          class="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2 py-0.5 text-[10px] tracking-tighter uppercase font-bold">
                         Sincronizado
                     </span>
                      <span v-if="viewMode === 'translation'" 
@@ -154,16 +169,16 @@ watch(() => projectStore.currentProject?.content, () => temporaryDraft.value = n
 
                 <!-- Original Actions -->
                 <template v-else>
-                    <button v-if="projectStore.isWorkingCopyActive"
-                            @click="handleRevert"
-                            class="text-[10px] border border-red-500/30 text-red-500/70 hover:text-red-500 hover:border-red-500 px-3 py-1 transition-all uppercase tracking-widest">
-                        Descartar
-                    </button>
-                    <button v-if="projectStore.isWorkingCopyActive"
-                            @click="handlePublish"
-                            class="text-[10px] bg-white text-black hover:bg-neutral-200 px-3 py-1 transition-all uppercase tracking-widest font-bold">
-                        Publicar
-                    </button>
+                    <template v-if="projectStore.isWorkingCopyActive && !temporaryDraft">
+                        <button @click="handleRevert"
+                                class="text-[10px] border border-red-500/30 text-red-500/70 hover:text-red-500 hover:border-red-500 px-3 py-1 transition-all uppercase tracking-widest">
+                            DESCARTAR CAMBIOS
+                        </button>
+                        <button @click="handlePublish"
+                                class="text-[10px] bg-white text-black hover:bg-neutral-200 px-3 py-1 transition-all uppercase tracking-widest font-bold">
+                            PROMOVER
+                        </button>
+                    </template>
                 </template>
             </div>
         </div>
@@ -181,12 +196,13 @@ watch(() => projectStore.currentProject?.content, () => temporaryDraft.value = n
             <!-- Right Pane: Preview (60%) -->
             <div class="w-[60%] h-full bg-[#050505]">
                 <DraftPreview 
+                    ref="previewRef"
                     :collection="collection" 
                     :slug="slug" 
                     :content="currentContent" 
                     :isTranslation="viewMode === 'translation'"
                     @draft-generated="handleDraftGenerated"
-                    @discard-draft="temporaryDraft = null"
+                    @discard-draft="handleDiscardDraft"
                 />
             </div>
         </div>

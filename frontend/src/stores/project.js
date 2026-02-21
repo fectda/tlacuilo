@@ -22,7 +22,7 @@ export const useProjectStore = defineStore('project', () => {
             const data = await ProjectService.listProjects()
             projects.value = data
         } catch (e) {
-            error.value = e.message || 'Failed to fetch projects'
+            error.value = e.response?.data?.detail || e.message || 'Failed to fetch projects'
             console.error('Fetch error:', e)
         } finally {
             loading.value = false
@@ -63,6 +63,7 @@ export const useProjectStore = defineStore('project', () => {
             return data
         } catch (e) {
             console.error('Fetch content error:', e)
+            error.value = e.response?.data?.detail || e.message
             throw e
         }
     }
@@ -93,6 +94,7 @@ export const useProjectStore = defineStore('project', () => {
             return result
         } catch (e) {
             console.error('Persist content error:', e)
+            error.value = e.response?.data?.detail || e.message
             throw e
         }
     }
@@ -108,6 +110,7 @@ export const useProjectStore = defineStore('project', () => {
             return result
         } catch (e) {
             console.error('Persist translation error:', e)
+            error.value = e.response?.data?.detail || e.message
             throw e
         }
     }
@@ -122,6 +125,7 @@ export const useProjectStore = defineStore('project', () => {
             return result
         } catch (e) {
             console.error('Promote error:', e)
+            error.value = e.response?.data?.detail || e.message
             throw e
         }
     }
@@ -153,6 +157,7 @@ export const useProjectStore = defineStore('project', () => {
             return result
         } catch (e) {
             console.error('Revert error:', e)
+            error.value = e.response?.data?.detail || e.message
             throw e
         }
     }
@@ -166,6 +171,7 @@ export const useProjectStore = defineStore('project', () => {
             return result
         } catch (e) {
             console.error('Publish translation error:', e)
+            error.value = e.response?.data?.detail || e.message
             throw e
         }
     }

@@ -143,17 +143,16 @@ async def generate_draft(collection: str, slug: str, orchestrator: ChatOrchestra
 @router.post("/{collection}/{slug}/persist")
 async def persist_content(collection: str, slug: str, request: ContentUpdate, manager: ProjectManager = Depends(get_project_manager)):
     result = manager.save_working_copy(collection, slug, request.content)
-    if result.get("validation", {}).get("schema_check", {}).get("error"):
-         # We still save but might want to return warning. ARCHITECTURE says persist is manual save.
-         pass
-    return Response(status_code=204)
+    if "error" in result:
+        raise HTTPException(status_code=result.get("status_code", 400), detail=result["error"])
+    return result
 
 @router.post("/{collection}/{slug}/promote")
 async def promote_project(collection: str, slug: str, manager: ProjectManager = Depends(get_project_manager)):
     result = manager.publish_project(collection, slug)
     if "error" in result:
         raise HTTPException(status_code=result.get("status_code", 400), detail=result["error"])
-    return Response(status_code=204)
+    return result
 
 # --- English Flow ---
 
