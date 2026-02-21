@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { ref, onMounted, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useProjectStore } from '../stores/project'
 import { useChatStore } from '../stores/chat'
@@ -13,16 +13,21 @@ const { collection, slug } = route.params
 
 onMounted(async () => {
     try {
-        // 1. Fetch metadata (Name, etc.) - Essential for header
-        await projectStore.fetchProject(collection, slug)
+        // 1. Get metadata from the global list (cached or fetched)
+        await projectStore.fetchProjectFromList(collection, slug)
 
-        // 2. Context Synchronization (Parallel per Architecture)
-        // GET /content -> Authoritative content & status
-        // GET /chat/history -> Chat history
+        // 2. Load context (Content & History)
         await Promise.all([
             projectStore.fetchContent(collection, slug),
             chatStore.fetchHistory(collection, slug)
         ])
+
+        // 3. TRIGGER SESSION (Ciclo de Inicio)
+        // Must be called after loading history to avoid race conditions.
+        // If history is empty, /init will trigger the first message.
+        // If there's technical debt, /init will trigger the missing reply.
+        await chatStore.initSession(collection, slug)
+
     } catch (e) {
         console.warn('Initialization warning:', e)
     }
@@ -31,12 +36,21 @@ onMounted(async () => {
 const viewMode = ref('original') // 'original' | 'translation'
 
 // Computed content for preview
+const temporaryDraft = ref(null)
+
 const currentContent = computed(() => {
+    if (temporaryDraft.value) {
+        return temporaryDraft.value
+    }
     if (viewMode.value === 'translation') {
         return projectStore.currentTranslation?.content || ''
     }
     return projectStore.currentProject?.content || ''
 })
+
+const handleDraftGenerated = (content) => {
+    temporaryDraft.value = content
+}
 
 // Handlers for Translation
 const toggleViewMode = async (mode) => {
@@ -61,9 +75,7 @@ const handleStartTranslation = async () => {
 
 const handlePublishTranslation = async () => {
      if (confirm('¿Publicar traducción al Portafolio?')) {
-        // In this architecture, publishing translation might be the same as publishing the project
-        // but focusing on English content. For now we use the general publish.
-        await projectStore.publishProject(collection, slug)
+        await projectStore.publishTranslation(collection, slug)
         alert('Traducción publicada.')
     }
 }
@@ -75,10 +87,15 @@ const handleRevert = async () => {
 }
 
 const handlePublish = async () => {
-    if (confirm('¿Deseas publicar esta copia de trabajo al Portafolio?')) {
-        await projectStore.publishProject(collection, slug)
+    if (confirm('¿Deseas promover esta copia de trabajo al Portafolio?')) {
+        await projectStore.promoteProject(collection, slug)
     }
 }
+
+// Clear temporary draft when changing view modes or reverting
+watch(viewMode, () => temporaryDraft.value = null)
+watch(() => projectStore.currentProject?.content, () => temporaryDraft.value = null)
+
 </script>
 
 <template>
@@ -112,20 +129,11 @@ const handlePublish = async () => {
                 </div>
             </div>
 
-            <!-- Center: View Toggle -->
-            <div class="flex bg-neutral-900 border border-neutral-800 p-1 gap-1">
-                <button 
-                    @click="toggleViewMode('original')"
-                    :class="viewMode === 'original' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'"
-                    class="px-3 py-1 text-[10px] uppercase tracking-widest transition-all">
-                    Español
-                </button>
-                <button 
-                    @click="toggleViewMode('translation')"
-                    :class="viewMode === 'translation' ? 'bg-neutral-800 text-white' : 'text-neutral-500 hover:text-neutral-300'"
-                    class="px-3 py-1 text-[10px] uppercase tracking-widest transition-all">
-                    English
-                </button>
+            <!-- Center: View Toggle REMOVED -->
+            <div class="flex items-center justify-center flex-1">
+                 <span class="text-[9px] text-neutral-600 uppercase tracking-[0.3em] font-bold">
+                    {{ viewMode === 'translation' ? 'TRADUCCIÓN EN' : 'ESPACIO DE TRABAJO' }}
+                </span>
             </div>
 
             <!-- Right: Actions -->
@@ -162,18 +170,23 @@ const handlePublish = async () => {
 
         <!-- Main Content -->
         <div class="flex flex-1 overflow-hidden">
-            <!-- Left Pane: Chat (60%) -->
-            <div class="w-[60%] h-full">
-                <ChatArea :collection="collection" :slug="slug" />
+            <!-- Left Pane: Chat (40%) -->
+            <div class="w-[40%] h-full relative z-10">
+                <ChatArea 
+                    :collection="collection" 
+                    :slug="slug" 
+                />
             </div>
 
-            <!-- Right Pane: Preview (40%) -->
-            <div class="w-[40%] h-full border-l border-white/10">
+            <!-- Right Pane: Preview (60%) -->
+            <div class="w-[60%] h-full bg-[#050505]">
                 <DraftPreview 
                     :collection="collection" 
                     :slug="slug" 
                     :content="currentContent" 
                     :isTranslation="viewMode === 'translation'"
+                    @draft-generated="handleDraftGenerated"
+                    @discard-draft="temporaryDraft = null"
                 />
             </div>
         </div>

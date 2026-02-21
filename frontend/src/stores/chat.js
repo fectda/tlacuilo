@@ -5,25 +5,29 @@ import ChatService from '../services/ChatService'
 export const useChatStore = defineStore('chat', () => {
     const history = ref([])
     const isTyping = ref(false)
+    const isDrafting = ref(false)
     const mode = ref('interview')
     const loading = ref(false)
-    const error = ref(null)
+    const chatError = ref(null)
+    const draftError = ref(null)
 
     const loadHistory = (messages) => {
-        error.value = null
+        chatError.value = null
+        draftError.value = null
         history.value = messages || []
     }
 
     const fetchHistory = async (collection, slug) => {
         loading.value = true
-        error.value = null
+        chatError.value = null
+        draftError.value = null
         try {
             const data = await ChatService.getHistory(collection, slug)
             const messages = data.messages || []
             loadHistory(messages)
             return messages
         } catch (e) {
-            error.value = e.message || 'Failed to fetch chat history'
+            chatError.value = e.response?.data?.detail || e.message || 'Failed to fetch chat history'
             console.error('Fetch history error:', e)
         } finally {
             loading.value = false
@@ -35,7 +39,8 @@ export const useChatStore = defineStore('chat', () => {
      */
     const initSession = async (collection, slug) => {
         isTyping.value = true
-        error.value = null
+        chatError.value = null
+        draftError.value = null
         try {
             const response = await ChatService.initSession(collection, slug)
             if (response && response.content) {
@@ -44,7 +49,7 @@ export const useChatStore = defineStore('chat', () => {
             return response
         } catch (e) {
             console.error('Init session error:', e)
-            error.value = e.message
+            chatError.value = e.response?.data?.detail || e.message
         } finally {
             isTyping.value = false
         }
@@ -59,7 +64,8 @@ export const useChatStore = defineStore('chat', () => {
         }
 
         isTyping.value = true
-        error.value = null
+        chatError.value = null
+        draftError.value = null
 
         try {
             const payload = {
@@ -73,7 +79,7 @@ export const useChatStore = defineStore('chat', () => {
             }
             return response
         } catch (e) {
-            error.value = e.message || 'Failed to send message'
+            chatError.value = e.response?.data?.detail || e.message || 'Failed to send message'
             console.error('Send error:', e)
         } finally {
             isTyping.value = false
@@ -81,50 +87,51 @@ export const useChatStore = defineStore('chat', () => {
     }
 
     const generateDraft = async (collection, slug) => {
-        isTyping.value = true
-        error.value = null
+        isDrafting.value = true
+        chatError.value = null
+        draftError.value = null
         try {
             const response = await ChatService.generateDraft(collection, slug)
-            // Draft response contains { content, status }
-            // The /draft endpoint calls /message internally with response_system_only: true
-            // so we should probably refresh history to see the hidden message if needed,
-            // but usually the AI doesn't send a visible message during draft gen.
             return response
         } catch (e) {
             console.error('Draft gen error:', e)
-            error.value = e.message
+            draftError.value = e.response?.data?.detail || e.message
         } finally {
-            isTyping.value = false
+            isDrafting.value = false
         }
     }
 
     const translateDraft = async (collection, slug, payload) => {
-        isTyping.value = true
-        error.value = null
+        isDrafting.value = true
+        chatError.value = null
+        draftError.value = null
         try {
             const response = await ChatService.translateDraft(collection, slug, payload)
             return response
         } catch (e) {
             console.error('Translate draft error:', e)
-            error.value = e.message
+            draftError.value = e.response?.data?.detail || e.message
         } finally {
-            isTyping.value = false
+            isDrafting.value = false
         }
     }
 
     const resetState = () => {
         history.value = []
         isTyping.value = false
-        error.value = null
+        chatError.value = null
+        draftError.value = null
         mode.value = 'interview'
     }
 
     return {
         history,
         isTyping,
+        isDrafting,
         mode,
         loading,
-        error,
+        chatError,
+        draftError,
         loadHistory,
         fetchHistory,
         initSession,

@@ -9,7 +9,15 @@ const router = useRouter()
 </script>
 
 <template>
-  <div class="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+  <div class="h-full overflow-y-auto custom-scrollbar">
+    <header class="p-4 border-b border-primary/20 flex justify-between items-center bg-background sticky top-0 z-50">
+      <h1 class="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+        TLACUILO
+      </h1>
+      <div class="text-sm text-gray-500">v1.2.0</div>
+    </header>
+
+    <div class="container mx-auto p-4 space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
     <!-- Hero Section -->
     <section class="relative overflow-hidden p-8 rounded-3xl glass-card bg-gradient-refined border-white/5">
       <div class="absolute top-0 right-0 -m-32 w-96 h-96 bg-accent/5 rounded-full blur-[120px]"></div>
@@ -45,5 +53,6 @@ const router = useRouter()
         </div>
       </div>
     </section>
+    </div>
   </div>
 </template>

@@ -2,19 +2,6 @@ import api from './api';
 
 export default {
     /**
-     * Get project metadata and status.
-     */
-    async getProject(collection, slug) {
-        try {
-            const response = await api.get(`/${collection}/${slug}`);
-            return response.data;
-        } catch (error) {
-            console.error('Error fetching project:', error);
-            throw error;
-        }
-    },
-
-    /**
      * List all projects across collections.
      */
     async listProjects() {
@@ -153,14 +140,14 @@ export default {
     },
 
     /**
-     * Final publication (Git Ops).
+     * Final publication for English translation (Localization Cycle).
      */
-    async publishProject(collection, slug) {
+    async publishTranslation(collection, slug) {
         try {
-            const response = await api.post(`/${collection}/${slug}/publish`);
+            const response = await api.post(`/${collection}/${slug}/publish-en`);
             return response.data;
         } catch (error) {
-            console.error('Error publishing project:', error);
+            console.error('Error publishing translation:', error);
             throw error;
         }
     }

@@ -29,21 +29,16 @@ export const useProjectStore = defineStore('project', () => {
         }
     }
 
-    const fetchProject = async (collection, slug) => {
-        loading.value = true
-        error.value = null
-        currentTranslation.value = null
-        try {
-            const data = await ProjectService.getProject(collection, slug)
-            currentProject.value = data
-            return data
-        } catch (e) {
-            error.value = e.message || 'Failed to fetch project'
-            console.error('Fetch error:', e)
-            throw e
-        } finally {
-            loading.value = false
+    const fetchProjectFromList = async (collection, slug) => {
+        if (!projects.value.atoms.length && !projects.value.bits.length && !projects.value.mind.length) {
+            await fetchProjects()
         }
+        const list = projects.value[collection] || []
+        const project = list.find(p => p.slug === slug)
+        if (project) {
+            currentProject.value = { ...currentProject.value, ...project }
+        }
+        return project
     }
 
     const fetchTranslation = async (collection, slug) => {
@@ -162,15 +157,15 @@ export const useProjectStore = defineStore('project', () => {
         }
     }
 
-    const publishProject = async (collection, slug) => {
+    const publishTranslation = async (collection, slug) => {
         try {
-            const result = await ProjectService.publishProject(collection, slug)
+            const result = await ProjectService.publishTranslation(collection, slug)
             if (currentProject.value) {
                 currentProject.value.doc_status = 'publicado'
             }
             return result
         } catch (e) {
-            console.error('Publish error:', e)
+            console.error('Publish translation error:', e)
             throw e
         }
     }
@@ -193,7 +188,7 @@ export const useProjectStore = defineStore('project', () => {
         loading,
         error,
         fetchProjects,
-        fetchProject,
+        fetchProjectFromList,
         fetchTranslation,
         fetchContent,
         createProject,
@@ -203,7 +198,7 @@ export const useProjectStore = defineStore('project', () => {
         forgetProject,
         resurrectProject,
         revertProject,
-        publishProject,
+        publishTranslation,
         totalProjects,
         isWorkingCopyActive
     }
