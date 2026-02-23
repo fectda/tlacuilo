@@ -2,7 +2,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.api.endpoints import projects, system, content
+from app.api.endpoints import projects, system, content, studio
 
 # Configure Logger
 logging.basicConfig(level=logging.INFO)
@@ -42,6 +42,7 @@ app.add_middleware(
 app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
 app.include_router(system.router, prefix="/api/system", tags=["system"])
 app.include_router(content.router, prefix="/api", tags=["content"])
+app.include_router(studio.router, prefix="/api", tags=["studio"])
 
 
 @app.get("/")

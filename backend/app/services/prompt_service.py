@@ -42,6 +42,18 @@ class PromptService:
         path = self.prompts_path / "strategies" / "english_correction.md"
         return self.load_prompt(path)
 
+    def get_shot_suggestion_strategy(self) -> str:
+        path = self.prompts_path / "strategies" / "shot_suggestion.md"
+        return self.load_prompt(path)
+
+    def get_visual_prompt_generation_strategy(self) -> str:
+        path = self.prompts_path / "strategies" / "visual_prompt_generation.md"
+        return self.load_prompt(path)
+
+    def get_visual_prompt_correction_strategy(self) -> str:
+        path = self.prompts_path / "strategies" / "visual_prompt_correction.md"
+        return self.load_prompt(path)
+
     def get_translator_prompt(self) -> str:
         path = self.prompts_path / "system" / "translator.md"
         return self.load_prompt(path)
