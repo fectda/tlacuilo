@@ -263,10 +263,20 @@ El frontend debe llamar a estos dos endpoints en paralelo al cargar un proyecto.
 
 -   `POST /api/{collection}/{slug}/translate/draft`: **Generación/Refinamiento (Inglés)**.
     -   **Responsabilidad**: Generar la primera versión en Inglés O refinar un borrador existente usando el **The Bilingual Scribe**.
-    -   **Input**: `{ "from_scratch": boolean, "instruction": "string (requerido si from_scratch es false)", "current_draft": "string (requerido si from_scratch es false)" }`.
+    -   **Ciclo de Revisión y Generación (Reintento y Descarte)**:
+        1.  **Recuperación**: Obtiene el `source_content` (Español).
+        2.  **Construcción**: Ensambla el payload con `tlacuilo_global.md` + `english_translation.md`.
+        3.  **Generación**: Envía a la IA.
+        4.  **Validación y Corrección**:
+            -   Si el MD generado falla la validación estructural:
+                -   Se registra el fallo en la conversación temporal (con timestamp).
+                -   Se envía un nuevo prompt a la IA usando `prompts/strategies/english_correction.md` inyectando el bloque `## VALIDATION ERROR:` con el detalle de la falla.
+                -   Se repite hasta un máximo de N intentos.
+        5.  **Finalización**: Si pasa la validación, se responde al servicio con el contenido limpio.
     -   **Uso de Prompts (Orquestación)**:
-        1.  **System Prompt**: `prompts/system/tlacuilo_global.md` (Define identidad y reglas de translocalización).
-        2.  **Strategy Prompt**: `prompts/strategies/english_translation.md` (Define el contexto de operación y reglas de salida).
+        1.  **System Prompt**: `prompts/system/tlacuilo_global.md` (Define identidad).
+        2.  **Strategy Prompt**: `prompts/strategies/english_translation.md` (Reglas de salida y formato).
+        3.  **Correction Prompt**: `prompts/strategies/english_correction.md` (Instrucciones específicas de reparación).
     -   **Lógica de Negocio**:
         1.  **Traducción Directa (`from_scratch: true`)**:
             -   **Prompt de Usuario**: Instruye traducir el `source_content` (Español) íntegro.

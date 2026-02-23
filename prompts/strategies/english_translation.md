@@ -12,5 +12,6 @@ Estás traduciendo o refinando un documento técnico desde el Español (Fuente) 
 1.  **Respetar la Instrucción**: El usuario proporcionará una instrucción específica (ej. "Make it more formal" o "Fix the technical terms"). Prioriza esta instrucción sobre las reglas generales.
 2.  **Continuidad**: Asegura que el refinamiento no rompa la coherencia con el resto del documento ya traducido.
 
-## Salida Obligatoria
-Tu respuesta debe comenzar DIRECTAMENTE con el bloque de Frontmatter (`---`) y terminar en el último punto del texto. No incluyas explicaciones ni preámbulos.
+## Reglas de Formato Estrictas
+1.  **Campo `stack`**: Debe ser un array inline obligatoriamente. Ejemplo: `stack: ["ESP32", "MQTT"]`. NO uses listas con guiones para este campo.
+2.  **Salida Obligatoria**: Tu respuesta debe comenzar DIRECTAMENTE con el bloque de Frontmatter (`---`) y terminar en el último punto del texto. No incluyas explicaciones ni preámbulos.
