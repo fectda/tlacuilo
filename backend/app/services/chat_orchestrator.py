@@ -1,4 +1,6 @@
 import logging
+import json
+import frontmatter
 from datetime import datetime
 from typing import List, Dict, Any, Optional
 from app.clients.llm.base import LLMClient
@@ -6,6 +8,10 @@ from app.services.project_manager import ProjectManager
 from app.services.prompt_service import PromptService
 from app.services.validation_service import ValidationService
 from app.repositories.project_repository import ProjectRepository
+from app.core.config import settings
+
+# Configure Logger
+logging.basicConfig(level=logging.DEBUG)
 
 logger = logging.getLogger(__name__)
 
@@ -113,14 +119,15 @@ class ChatOrchestrator:
             is_valid = validation_error is None
             
             # Debug logging for ALL attempts in drafts-tests/
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            debug_dir = project_dir / "drafts-tests"
-            debug_dir.mkdir(parents=True, exist_ok=True)
-            
-            suffix = "success" if is_valid else "fail"
-            # Save Raw Response (MD) and History (JSON) for technical audit
-            self.repo.write_text(debug_dir / f"{timestamp}_{suffix}_raw.md", raw_response)
-            self.repo.write_json(debug_dir / f"{timestamp}_{suffix}_history.json", draft_history)
+            if settings.DEBUG_LOGS_ENABLED:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                debug_dir = project_dir / "drafts-tests"
+                debug_dir.mkdir(parents=True, exist_ok=True)
+                
+                suffix = "success" if is_valid else "fail"
+                # Save Raw Response (MD) and History (JSON) for technical audit
+                self.repo.write_text(debug_dir / f"{timestamp}_{suffix}_raw.md", raw_response)
+                self.repo.write_json(debug_dir / f"{timestamp}_{suffix}_history.json", draft_history)
             
             if is_valid:
                 draft_content = candidate
@@ -139,6 +146,100 @@ class ChatOrchestrator:
             raise ValueError("IA failed to generate valid draft after multiple retries.")
 
         return draft_content
+
+    async def process_translation_draft(self, collection: str, slug: str, from_scratch: bool, 
+                                       instruction: Optional[str] = None, 
+                                       current_draft: Optional[str] = None) -> str:
+        """
+        Localization Flow D.264 (Strict implementation + Validation Cycle).
+        1. Recuperación de Fuente (Spanish working copy).
+        2. Construcción de Payload (Architecture D.277).
+        3. Ciclo de revisión y generación (Ollama -> Debug Log -> Validar -> Retry).
+        """
+        # 1. Recuperación de Fuente
+        project_dir = self.repo.get_project_dir(collection, slug)
+        working_copy = self.manager.get_working_copy(collection, slug)
+        source_content = working_copy["content"]
+        
+        # 2. Construcción del Payload
+        system_id = self.prompts.get_global_system_prompt(collection, slug, source_content)
+        strategy = self.prompts.get_translation_strategy()
+        
+        system_message = f"{system_id}\n\n{strategy}"
+        
+        if from_scratch:
+            user_message = (
+                "Translate the FOLLOWING source content to English:\n"
+                "---\n"
+                f"{source_content}\n"
+                "---"
+            )
+        else:
+            user_message = (
+                f"SOURCE CONTENT (Spanish):\n---\n{source_content}\n---\n\n"
+                f"CURRENT DRAFT (English):\n---\n{current_draft}\n---\n\n"
+                f"USER INSTRUCTION: {instruction}\n\n"
+                "Please REFINE the English draft according to the instruction, ensuring alignment with the source content."
+            )
+
+        messages = [
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": user_message}
+        ]
+
+        # 3. Ciclo de revisión y generación
+        final_draft = ""
+        max_attempts = 3
+        
+        for attempt in range(max_attempts):
+            # 3.1 Enviar a Ollama
+            raw_response = await self.llm.chat(messages)
+            
+            # 3.2 Recibe y agrega a la conversación
+            messages.append({"role": "assistant", "content": raw_response})
+            
+            # 3.3 Guardar de manera temporal (Debug logs)
+            if settings.DEBUG_LOGS_ENABLED:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                debug_dir = project_dir / "drafts-tests"
+                debug_dir.mkdir(parents=True, exist_ok=True)
+                
+                # Sanitización básica para guardar el MD
+                candidate = self.validator.sanitize_draft(raw_response)
+                
+                # 3.4 Validar formato
+                validation_error = self.validator.validate_schema(candidate, collection)
+                is_valid = (validation_error is None)
+                
+                # Guardado de logs (mismo flujo que español)
+                suffix = f"en_at{attempt+1}_" + ("success" if is_valid else "fail")
+                self.repo.write_text(debug_dir / f"{timestamp}_{suffix}_raw.md", raw_response)
+                # Guardamos la conversación actual (mensajes)
+                self.repo.write_json(debug_dir / f"{timestamp}_{suffix}_history.json", messages)
+            else:
+                # Still need to validate if logs are disabled
+                candidate = self.validator.sanitize_draft(raw_response)
+                validation_error = self.validator.validate_schema(candidate, collection)
+                is_valid = (validation_error is None)
+
+            if is_valid:
+                # 3.4.2 Termina ciclo
+                final_draft = candidate
+                break
+            else:
+                # 3.4.1 Error: pegamos el prompt de corrección (estratega) junto con el error
+                correction_strategy = self.prompts.get_correction_strategy()
+                retry_prompt = (
+                    f"{correction_strategy}\n\n"
+                    f"## VALIDATION ERROR:\n"
+                    f"{validation_error}"
+                )
+                messages.append({"role": "user", "content": retry_prompt})
+                logger.warning(f"Translation validation failed (attempt {attempt+1}): {validation_error}")
+                final_draft = candidate # fallback
+
+        # No se guarda historial permanente (translation_history.json) como pidió el usuario.
+        return final_draft
 
     async def translate_proposal(self, source_content: str) -> str:
         system_prompt = self.prompts.get_translator_prompt()

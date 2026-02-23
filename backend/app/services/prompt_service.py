@@ -29,6 +29,19 @@ class PromptService:
         path = self.prompts_path / "strategies" / "draft_generation.md"
         return self.load_prompt(path)
 
+    def get_global_system_prompt(self, collection: str, slug: str, project_content: str) -> str:
+        path = self.prompts_path / "system" / "tlacuilo_global.md"
+        content = self.load_prompt(path)
+        return content.replace("{collection}", collection).replace("{slug}", slug).replace("{project_content}", project_content)
+
+    def get_translation_strategy(self) -> str:
+        path = self.prompts_path / "strategies" / "english_translation.md"
+        return self.load_prompt(path)
+
+    def get_correction_strategy(self) -> str:
+        path = self.prompts_path / "strategies" / "english_correction.md"
+        return self.load_prompt(path)
+
     def get_translator_prompt(self) -> str:
         path = self.prompts_path / "system" / "translator.md"
         return self.load_prompt(path)

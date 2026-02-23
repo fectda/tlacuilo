@@ -7,5 +7,6 @@ class Config:
     PROMPTS_PATH = Path(os.getenv("PROMPTS_PATH", "/app/prompts"))
     OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
     LLM_MODEL = os.getenv("LLM_MODEL", "mistral")
+    DEBUG_LOGS_ENABLED = os.getenv("DEBUG_LOGS_ENABLED", "false").lower() == "true"
 
 settings = Config()

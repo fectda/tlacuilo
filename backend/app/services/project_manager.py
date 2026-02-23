@@ -200,6 +200,50 @@ class ProjectManager:
         path = self.repo.portfolio_path / "src" / "templates" / f"{collection}-template.md"
         return path if path.exists() else None
 
+    def get_translation_copy(self, collection: str, slug: str) -> Dict[str, Any]:
+        """Selection logic for English version dynamic mirroring ARCHITECTURE D.252."""
+        project_dir = self.repo.get_project_dir(collection, slug)
+        local_en_md = project_dir / f"{slug}.en.md"
+        portfolio_en_md = self.repo.portfolio_content / collection / "en" / f"{slug}.md"
+        
+        state = self.repo.get_doc_state(project_dir)
+        doc_status = state.get("doc_status", "borrador")
+
+        content = ""
+
+        # 2. Semilla (Hidratación): Si Portafolio existe -> Base inicial
+        if portfolio_en_md.exists():
+            content = self.repo.read_text(portfolio_en_md)
+
+        # 3. Sesión Activa: Si hay trabajo en curso -> Prevalece Local
+        if local_en_md.exists():
+             content = self.repo.read_text(local_en_md)
+
+        # 4. Sincronización Pasiva: Si ambos existen y status != 'promovido' -> Actualiza desde Portafolio
+        if local_en_md.exists() and portfolio_en_md.exists() and doc_status != "promovido":
+            content = self.repo.read_text(portfolio_en_md)
+
+        return {"content": content, "is_working_copy_active": local_en_md.exists()}
+
+
+
+    def save_translation_copy(self, collection: str, slug: str, content: str) -> Dict[str, Any]:
+        """Persist translation work and update state."""
+        schema_error = self.validator.validate_schema(content, collection)
+        if schema_error:
+            return {"error": f"Validación estructural: {schema_error}", "status_code": 400}
+            
+        project_dir = self.repo.get_project_dir(collection, slug)
+        local_en_md = project_dir / f"{slug}.en.md"
+        self.repo.write_text(local_en_md, content)
+        
+        # Update doc_state.json -> doc_status: traducción (D.287)
+        state = self.repo.get_doc_state(project_dir)
+        state["doc_status"] = "traducción"
+        self.repo.save_doc_state(project_dir, state)
+        
+        return {}
+
     # Helper for style references
     def get_style_reference(self, collection: str) -> Optional[Path]:
         path = self.repo.portfolio_content / "_referencias" / f"{collection}-style.md"

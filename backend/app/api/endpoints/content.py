@@ -156,22 +156,35 @@ async def promote_project(collection: str, slug: str, manager: ProjectManager = 
 
 # --- English Flow ---
 
+@router.get("/{collection}/{slug}/translate")
+async def get_translation(collection: str, slug: str, manager: ProjectManager = Depends(get_project_manager)):
+    """Recupera el contenido en inglés para traducción (Sección D)."""
+    return manager.get_translation_copy(collection, slug)
+
 @router.post("/{collection}/{slug}/translate/draft")
 async def translate_draft(collection: str, slug: str, request: TranslationDraftRequest,
-                          orchestrator: ChatOrchestrator = Depends(get_chat_orchestrator),
-                          manager: ProjectManager = Depends(get_project_manager)):
+                          orchestrator: ChatOrchestrator = Depends(get_chat_orchestrator)):
+    """Genera o refina un borrador en inglés (Sección D)."""
     try:
-        if request.from_scratch:
-            content_data = manager.get_working_copy(collection, slug)
-            en_content = await orchestrator.translate_proposal(content_data["content"])
-        else:
-            # Refinement could be added to orchestrator if needed
-            raise HTTPException(status_code=501, detail="Refinement not implemented in refactor yet")
-            
-        return {"content": en_content}
+        content = await orchestrator.process_translation_draft(
+            collection, slug, 
+            from_scratch=request.from_scratch,
+            instruction=request.instruction,
+            current_draft=request.current_draft
+        )
+        return {"content": content}
     except Exception as e:
         logger.error(f"Error in translate/draft for {slug}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/{collection}/{slug}/translate/persist")
+async def persist_translation(collection: str, slug: str, request: ContentUpdate, 
+                              manager: ProjectManager = Depends(get_project_manager)):
+    """Persiste el borrador traducido (Sección D)."""
+    result = manager.save_translation_copy(collection, slug, request.content)
+    if "error" in result:
+        raise HTTPException(status_code=result.get("status_code", 400), detail=result["error"])
+    return Response(status_code=200)
 
 # --- Actions (Forget/Resurrect) ---
 
