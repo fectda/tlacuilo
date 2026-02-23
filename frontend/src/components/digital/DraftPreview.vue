@@ -39,7 +39,6 @@ const handleManualSave = async () => {
         } else {
              await projectStore.persistContent(props.collection, props.slug, localContent.value)
         }
-        isEditing.value = false // Exit edit mode on save
         persistError.value = null
     } catch (e) {
         console.error(e)
@@ -70,7 +69,11 @@ const isWorkingCopyActive = computed(() => {
     return projectStore.currentProject?.is_working_copy_active || false
 })
 
-const emit = defineEmits(['draft-generated', 'discard-draft'])
+const emit = defineEmits(['draft-generated', 'discard-draft', 'update:content'])
+
+watch(localContent, (newVal) => {
+    emit('update:content', newVal)
+})
 
 const handleDiscard = () => {
     if (confirm('¿Descartar los cambios actuales y volver a la versión guardada?')) {
@@ -84,11 +87,18 @@ const handleDiscard = () => {
 }
 
 const handleGenerateDraft = async () => {
-    chatStore.draftError = null // Clear any previous errors
-    isEditing.value = false // Exit edit mode before drafting
+    chatStore.draftError = null
+    isEditing.value = false
+    
+    if (props.isTranslation) {
+        // Translation generation is still handled by TranslationStudio (Studio side)
+        return
+    }
+
     const response = await chatStore.generateDraft(props.collection, props.slug)
     if (response && response.content) {
         emit('draft-generated', response.content)
+        localContent.value = response.content
     }
 }
 </script>
@@ -117,7 +127,7 @@ const handleGenerateDraft = async () => {
                     <div class="flex items-center gap-3 mb-4">
                         <div class="w-1.5 h-6 bg-red-500"></div>
                         <span class="text-xs font-black tracking-[0.3em] text-red-500 uppercase">
-                            {{ chatStore.draftError ? 'GENERATION_FAILURE' : 'VALIDATION_ERROR' }}
+                            {{ chatStore.draftError ? (isTranslation ? 'LOCALIZATION_FAILURE' : 'GENERATION_FAILURE') : 'VALIDATION_ERROR' }}
                         </span>
                     </div>
                     <p class="text-sm text-neutral-400 font-mono mb-6 leading-relaxed whitespace-pre-wrap">
@@ -154,33 +164,32 @@ const handleGenerateDraft = async () => {
             </div>
             
             <div class="flex items-center gap-2">
+                <!-- Actions -->
                 <button 
-                    v-if="!isTranslation && !isEditing"
+                    v-if="!isEditing && !isTranslation"
                     @click="handleGenerateDraft"
                     :disabled="chatStore.isTyping || isEditing || chatStore.isDrafting"
-                    class="text-[9px] bg-white/5 border border-white/10 hover:bg-accent hover:text-black hover:border-accent hover:shadow-glow-accent px-2 py-0.5 transition-all uppercase tracking-widest font-mono disabled:opacity-30 disabled:cursor-not-allowed">
-                    [ GENERAR BORRADOR ]
+                    class="text-[9px] border px-2 py-0.5 transition-all uppercase tracking-widest font-mono bg-white/5 border-white/10 hover:bg-accent hover:text-black hover:border-accent">
+                    <span>[ GENERAR BORRADOR ]</span>
                 </button>
                 <button 
                     @click="isEditing = !isEditing"
                     :disabled="chatStore.isDrafting"
-                    class="text-[9px] bg-white/5 border border-white/10 hover:bg-white/10 px-2 py-0.5 transition-all uppercase tracking-widest font-mono disabled:opacity-30 disabled:cursor-not-allowed">
-                    {{ isEditing ? '[ PREVISUALIZAR ]' : '[ MODO EDICIÓN ]' }}
+                    class="text-[9px] bg-white/5 border border-white/10 hover:bg-white/10 px-2 py-0.5 transition-all uppercase tracking-widest font-mono">
+                    {{ isEditing ? '[ PREVISUALIZAR ]' : '[ EDITAR ]' }}
                 </button>
 
-                <!-- Dirty Actions -->
                 <template v-if="isDirty">
                     <button 
                         @click="handleDiscard"
-                        class="text-[9px] bg-white/5 border border-red-500/20 hover:bg-red-500/10 text-red-400 hover:border-red-500/50 px-2 py-0.5 transition-all uppercase tracking-widest font-mono">
+                        class="text-[9px] bg-white/5 border border-red-500/20 hover:bg-red-500/10 text-red-400 px-2 py-0.5 transition-all uppercase tracking-widest font-mono">
                         [ DESCARTAR ]
                     </button>
                     <button 
                         @click="handleManualSave"
                         :disabled="isSaving"
-                        class="text-[9px] bg-white/5 border border-green-500/20 hover:bg-green-500/10 text-green-400 hover:border-green-500/50 px-2 py-0.5 transition-all uppercase tracking-widest font-mono flex items-center gap-1">
-                        <span v-if="isSaving" class="animate-spin text-[8px]">⟳</span>
-                        <span>{{ isSaving ? 'GUARDANDO...' : 'GUARDAR EN DISCO' }}</span>
+                        class="text-[9px] bg-white/5 border border-green-500/20 hover:bg-green-500/10 text-green-400 px-2 py-0.5 transition-all uppercase tracking-widest font-mono">
+                        <span>{{ isSaving ? 'GUARDANDO...' : 'GUARDAR' }}</span>
                     </button>
                 </template>
             </div>
@@ -254,20 +263,6 @@ const handleGenerateDraft = async () => {
 </template>
 
 <style scoped>
-.custom-scrollbar::-webkit-scrollbar {
-    width: 6px;
-}
-.custom-scrollbar::-webkit-scrollbar-track {
-    background: #0a0f14;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb {
-    background: #1f2937;
-    border: 1px solid #0a0f14;
-}
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-    background: #374151;
-}
-
 /* Portfolio Preview Styles */
 .portfolio-preview {
     font-family: 'Montserrat', system-ui, sans-serif;

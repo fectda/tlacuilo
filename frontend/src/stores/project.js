@@ -162,20 +162,6 @@ export const useProjectStore = defineStore('project', () => {
         }
     }
 
-    const publishTranslation = async (collection, slug) => {
-        try {
-            const result = await ProjectService.publishTranslation(collection, slug)
-            if (currentProject.value) {
-                currentProject.value.doc_status = 'publicado'
-            }
-            return result
-        } catch (e) {
-            console.error('Publish translation error:', e)
-            error.value = e.response?.data?.detail || e.message
-            throw e
-        }
-    }
-
     // Getters
     const totalProjects = computed(() => {
         return (projects.value.atoms?.length || 0) +
@@ -204,7 +190,7 @@ export const useProjectStore = defineStore('project', () => {
         forgetProject,
         resurrectProject,
         revertProject,
-        publishTranslation,
+        promoteProject,
         totalProjects,
         isWorkingCopyActive
     }

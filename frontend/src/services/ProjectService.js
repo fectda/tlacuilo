@@ -140,15 +140,15 @@ export default {
     },
 
     /**
-     * Final publication for English translation (Localization Cycle).
+     * Promote working copy to portfolio.
      */
-    async publishTranslation(collection, slug) {
+    async promoteProject(collection, slug) {
         try {
-            const response = await api.post(`/${collection}/${slug}/publish-en`);
+            const response = await api.post(`/${collection}/${slug}/promote`);
             return response.data;
         } catch (error) {
-            console.error('Error publishing translation:', error);
+            console.error('Error promoting project:', error);
             throw error;
         }
-    }
+    },
 };

@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 import { useProjectStore } from '../stores/project'
 import { useChatStore } from '../stores/chat'
 import ChatArea from '../components/digital/ChatArea.vue'
+import TranslationStudio from '../components/digital/TranslationStudio.vue'
 import DraftPreview from '../components/digital/DraftPreview.vue'
 
 const route = useRoute()
@@ -36,28 +37,22 @@ onMounted(async () => {
 
 const viewMode = ref('original') // 'original' | 'translation'
 
-// Computed content for preview
-const temporaryDraft = ref(null)
-
-const currentContent = computed(() => {
-    if (temporaryDraft.value) {
-        return temporaryDraft.value
-    }
-    if (viewMode.value === 'translation') {
-        return projectStore.currentTranslation?.content || ''
-    }
-    return projectStore.currentProject?.content || ''
-})
+const originalDraft = ref(null)
+const translationDraft = ref(null)
 
 const handleDraftGenerated = (content) => {
-    temporaryDraft.value = content
+    if (viewMode.value === 'translation') {
+        translationDraft.value = content
+    } else {
+        originalDraft.value = content
+    }
 }
 
 // Handlers for Translation
 const toggleViewMode = async (mode) => {
     viewMode.value = mode
     if (mode === 'translation') {
-        if (!projectStore.currentTranslation) {
+        if (!projectStore.currentTranslation || projectStore.currentTranslation.source === 'empty') {
             await projectStore.fetchTranslation(collection, slug)
         }
         chatStore.mode = 'translation' 
@@ -66,18 +61,10 @@ const toggleViewMode = async (mode) => {
     }
 }
 
-const handleStartTranslation = async () => {
-    if (confirm('¿Iniciar traducción al inglés? Esto generará una propuesta basada en la versión publicada.')) {
-        await chatStore.translateDraft(collection, slug, { from_scratch: true })
-        await projectStore.fetchTranslation(collection, slug) // Refresh to see result
-        viewMode.value = 'translation'
-    }
-}
-
-const handlePublishTranslation = async () => {
-     if (confirm('¿Publicar traducción al Portafolio?')) {
-        await projectStore.publishTranslation(collection, slug)
-        alert('Traducción publicada.')
+const handleGlobalPromotion = async () => {
+    // Re-verify Section D status if needed
+     if (confirm('¿Ejecutar PROMOCIÓN GLOBAL? (Git Ops: Commit & Push al repositorio remoto)')) {
+        await projectStore.publishGlobal(collection, slug)
     }
 }
 
@@ -100,12 +87,19 @@ const handleChildSave = async () => {
 }
 
 const handleDiscardDraft = () => {
-    temporaryDraft.value = null
+    if (viewMode.value === 'translation') {
+        translationDraft.value = null
+    } else {
+        originalDraft.value = null
+    }
 }
 
-// Clear temporary draft when changing view modes or reverting
-watch(viewMode, () => temporaryDraft.value = null)
-watch(() => projectStore.currentProject?.content, () => temporaryDraft.value = null)
+// Clear temporary drafts when reverting
+watch(() => projectStore.currentProject?.content, () => originalDraft.value = null)
+watch(() => projectStore.currentTranslation?.content, () => translationDraft.value = null)
+watch(() => projectStore.isWorkingCopyActive, (val) => {
+    if (!val) originalDraft.value = null
+})
 
 </script>
 
@@ -124,87 +118,79 @@ watch(() => projectStore.currentProject?.content, () => temporaryDraft.value = n
                 </h1>
                 
                 <!-- Status & Mode Indicators -->
-                <div class="flex items-center gap-2">
-                    <span v-if="projectStore.currentProject?.doc_status === 'promovido' && viewMode === 'original'"
-                          class="bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 px-2 py-0.5 text-[10px] tracking-tighter uppercase font-bold">
-                        Promovido
+                <div class="flex items-center gap-2 cursor-pointer group" @click="toggleViewMode(viewMode === 'original' ? 'translation' : 'original')">
+                    <span v-if="viewMode === 'original'"
+                          class="bg-amber-500/10 text-amber-500 border border-amber-500/20 px-3 py-1 text-[10px] tracking-[0.2em] uppercase font-black transition-all group-hover:bg-amber-500/20 group-hover:text-amber-400">
+                        EDICIÓN
                     </span>
-                    <span v-else-if="projectStore.isWorkingCopyActive && viewMode === 'original'" 
-                          class="bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2 py-0.5 text-[10px] tracking-tighter uppercase">
-                        Copia de Trabajo
+                    <span v-else 
+                          class="bg-blue-500/10 text-blue-500 border border-blue-500/20 px-3 py-1 text-[10px] tracking-[0.2em] uppercase font-black transition-all group-hover:bg-blue-500/20 group-hover:text-blue-400">
+                        TRADUCCIÓN
                     </span>
-                    <span v-else-if="viewMode === 'original'"
-                          class="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2 py-0.5 text-[10px] tracking-tighter uppercase font-bold">
-                        Sincronizado
-                    </span>
-                     <span v-if="viewMode === 'translation'" 
-                          class="bg-blue-500/10 text-blue-500 border border-blue-500/20 px-2 py-0.5 text-[10px] tracking-tighter uppercase">
-                        Modo Traducción
-                    </span>
+                    
                 </div>
             </div>
 
-            <!-- Center: View Toggle REMOVED -->
+            <!-- Center: Breadcrumbs (Static in Header) -->
             <div class="flex items-center justify-center flex-1">
-                 <span class="text-[9px] text-neutral-600 uppercase tracking-[0.3em] font-bold">
-                    {{ viewMode === 'translation' ? 'TRADUCCIÓN EN' : 'ESPACIO DE TRABAJO' }}
+                <span class="text-[9px] text-neutral-500 uppercase tracking-[0.4em] font-mono">
+                    {{ collection }} / <span class="text-white">{{ slug }}</span>
                 </span>
             </div>
 
-            <!-- Right: Actions -->
+            <!-- Right: Contextual Actions -->
             <div class="flex items-center gap-3">
-                <!-- Translation Actions -->
-                <template v-if="viewMode === 'translation'">
-                     <button v-if="!projectStore.currentTranslation"
-                            @click="handleStartTranslation"
-                            class="text-[10px] bg-blue-600/20 text-blue-500 border border-blue-500/50 hover:bg-blue-600 hover:text-white px-3 py-1 transition-all uppercase tracking-widest">
-                        Iniciar Traducción
+                <template v-if="projectStore.isWorkingCopyActive">
+                    <button @click="handleRevert"
+                            class="text-[10px] border border-red-500/50 text-red-500 hover:bg-red-500/10 px-4 py-1.5 transition-all uppercase tracking-[0.2em] font-black">
+                        DESCARTAR
                     </button>
-                     <button v-if="projectStore.currentTranslation"
-                            @click="handlePublishTranslation"
-                            class="text-[10px] bg-white text-black hover:bg-neutral-200 px-3 py-1 transition-all uppercase tracking-widest font-bold">
-                        Publicar EN
+                    <button @click="handlePublish"
+                            class="text-[10px] bg-white text-black hover:bg-neutral-200 px-4 py-1.5 transition-all uppercase tracking-[0.2em] font-black shadow-xl">
+                        PROMOVER
                     </button>
-                </template>
-
-                <!-- Original Actions -->
-                <template v-else>
-                    <template v-if="projectStore.isWorkingCopyActive && !temporaryDraft">
-                        <button @click="handleRevert"
-                                class="text-[10px] border border-red-500/30 text-red-500/70 hover:text-red-500 hover:border-red-500 px-3 py-1 transition-all uppercase tracking-widest">
-                            DESCARTAR CAMBIOS
-                        </button>
-                        <button @click="handlePublish"
-                                class="text-[10px] bg-white text-black hover:bg-neutral-200 px-3 py-1 transition-all uppercase tracking-widest font-bold">
-                            PROMOVER
-                        </button>
-                    </template>
                 </template>
             </div>
         </div>
 
         <!-- Main Content -->
         <div class="flex flex-1 overflow-hidden">
-            <!-- Left Pane: Chat (40%) -->
-            <div class="w-[40%] h-full relative z-10">
-                <ChatArea 
-                    :collection="collection" 
-                    :slug="slug" 
-                />
+            <!-- Dynamic Workspace Left Pane -->
+            <div v-if="viewMode === 'original'" class="w-[40%] h-full relative z-10">
+                <ChatArea :collection="collection" :slug="slug" />
+            </div>
+            <div v-else class="w-[40%] h-full relative z-10">
+                <TranslationStudio :collection="collection" :slug="slug" @draft-generated="handleDraftGenerated" />
             </div>
 
-            <!-- Right Pane: Preview (60%) -->
-            <div class="w-[60%] h-full bg-[#050505]">
+            <!-- Left Sidebar Removed -->
+
+            <!-- Right Workspace: Preview / Editor -->
+            <div class="flex-1 overflow-hidden relative group">
+                <!-- Actions Bar Removed (Consolidated in Header) -->
+
                 <DraftPreview 
-                    ref="previewRef"
+                    v-show="viewMode === 'original'"
                     :collection="collection" 
                     :slug="slug" 
-                    :content="currentContent" 
-                    :isTranslation="viewMode === 'translation'"
+                    :content="originalDraft !== null ? originalDraft : (projectStore.currentProject?.content || '')" 
+                    :isTranslation="false"
                     @draft-generated="handleDraftGenerated"
                     @discard-draft="handleDiscardDraft"
+                    @update:content="c => originalDraft = c"
+                />
+                <DraftPreview 
+                    v-show="viewMode === 'translation'"
+                    :collection="collection" 
+                    :slug="slug" 
+                    :content="translationDraft !== null ? translationDraft : (projectStore.currentTranslation?.content || '')" 
+                    :isTranslation="true"
+                    @draft-generated="handleDraftGenerated"
+                    @discard-draft="handleDiscardDraft"
+                    @update:content="c => translationDraft = c"
                 />
             </div>
         </div>
+
     </div>
 </template>
