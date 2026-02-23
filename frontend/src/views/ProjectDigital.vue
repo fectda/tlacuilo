@@ -127,8 +127,15 @@ watch(() => projectStore.isWorkingCopyActive, (val) => {
                           class="bg-blue-500/10 text-blue-500 border border-blue-500/20 px-3 py-1 text-[10px] tracking-[0.2em] uppercase font-black transition-all group-hover:bg-blue-500/20 group-hover:text-blue-400">
                         TRADUCCIÓN
                     </span>
-                    
                 </div>
+
+                <!-- Studio Link -->
+                <router-link
+                    :to="`/project/${collection}/${slug}/studio`"
+                    class="bg-cyan-500/5 text-cyan-600 border border-cyan-500/10 px-3 py-1 text-[10px] tracking-[0.2em] uppercase font-black hover:bg-cyan-500/10 hover:text-cyan-400 transition-all"
+                >
+                    ⌀ IXTLI
+                </router-link>
             </div>
 
             <!-- Center: Breadcrumbs (Static in Header) -->
