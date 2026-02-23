@@ -537,22 +537,28 @@ Tlacuilo utiliza un sistema de **Prompts Composicionales**, donde la instrucció
 | :--- | :--- | :--- |
 | **System** | `prompts/system/tlacuilo_digital.md` | Persona "El Escriba Fiel" (Español). Tono de taller y mentor. |
 | **System** | `prompts/system/tlacuilo_global.md` | Persona "The Bilingual Scribe" (Inglés). Traductor técnico. |
+| **System** | `prompts/system/tlacuilo_ixtli.md` | Persona "Tlacuilo Ixtli" (Director Visual). Experto en fotografía técnica e integridad de hardware. |
 | **Strategy** | `prompts/strategies/atoms_bits_strategy.md` | Lógica de entrevista/extracción para proyectos técnicos. |
 | **Strategy** | `prompts/strategies/mind_strategy.md` | Lógica de extracción para ensayos y reflexiones. |
 | **Strategy** | `prompts/strategies/draft_generation.md` | Instrucciones de ensamblaje final y blindaje de Frontmatter. |
 | **Strategy** | `prompts/strategies/english_translation.md` | Reglas de translocalización técnica y preservación de términos. |
-| **System** | `prompts/system/tlacuilo_ixtli.md` | Persona "Tlacuilo Ixtli" (Director Visual). Experto en fotografía técnica. |
+| **Strategy** | `prompts/strategies/english_correction.md` | Corrección estructural de borradores en inglés fallidos. |
+| **Strategy** | `prompts/strategies/shot_suggestion.md` | Análisis de documento MD y generación de Shot List con JSON estructurado. |
+| **Strategy** | `prompts/strategies/visual_prompt_generation.md` | Vision LLM: transforma foto de hardware en `visual_prompt` para ComfyUI. |
+| **Strategy** | `prompts/strategies/visual_prompt_correction.md` | Refinamiento quirúrgico de `visual_prompt` basado en instrucción del usuario. |
 
 ### B. Mapeo de Servicios vs Prompts
 El Backend orquesta la inyección según el endpoint:
 
-| Endpoint | System Prompt (Role) | Strategy Prompt (Context) |
-| :--- | :--- | :--- |
-| `/init` | `tlacuilo_digital.md` | `atoms_bits_strategy.md` o `mind_strategy.md` |
-| `/message` | `tlacuilo_digital.md` | Seguimiento de la estrategia cargada en sesión. |
-| `/draft` | `tlacuilo_digital.md` | `draft_generation.md` + Strategy de Colección. |
-| `/translate/draft` | `tlacuilo_global.md` | `english_translation.md`. |
-| `/studio/*` | `tlacuilo_ixtli.md` | Ciclo de sugerencia y refinamiento visual. |
+| Endpoint | System Prompt (Role) | Strategy Prompt (Context) | Construcción del Payload |
+| :--- | :--- | :--- | :--- |
+| `/init` | `tlacuilo_digital.md` | `atoms_bits_strategy.md` o `mind_strategy.md` | System + Strategy inyectados en el primer mensaje. |
+| `/message` | `tlacuilo_digital.md` | Seguimiento de la estrategia cargada en sesión. | Historial completo de la sesión. |
+| `/draft` | `tlacuilo_digital.md` | `draft_generation.md` + Strategy de Colección. | System + conversación + instrucción de generación de MD. |
+| `/translate/draft` | `tlacuilo_global.md` | `english_translation.md` / `english_correction.md` | System + source_content. En retry: añade `## VALIDATION ERROR:` + detalle. |
+| `/studio/suggest` | `tlacuilo_ixtli.md` | `shot_suggestion.md` | System + Strategy + contenido del `{slug}.md`. Salida: JSON Array. |
+| `/studio/shots/{id}/upload` | `tlacuilo_ixtli.md` | `visual_prompt_generation.md` | System + Strategy + imagen `original.png` + `description` + `focus` + `atmosphere`. Salida: string del `visual_prompt`. |
+| `/studio/shots/{id}/correct` | `tlacuilo_ixtli.md` | `visual_prompt_correction.md` | System + Strategy + `previous_visual_prompt` + `instruction`. Salida: string refinado del `visual_prompt`. |
 
 ### C. Reglas de Construcción de Prompts
 Para mantener la calidad de la asistencia, todo prompt en Tlacuilo debe seguir estos axiomas:
