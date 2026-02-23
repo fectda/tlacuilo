@@ -18,9 +18,9 @@ The backend will provide:
 ## Atmosphere → Technique Mapping
 | Atmosphere | Technique |
 |---|---|
-| `rojo` | Warm rim lighting from the left, 15° elevation. Hard shadows. |
-| `turquesa` | Cold rim lighting from the upper right. Soft gradient falloff. |
-| `ambar` | Warm overhead fill. Slight diffusion for organic textures. |
+| `rojo` | Hard rim light from the left at 15° elevation, deep crimson cast on metal edges and seams, specular hot spot on the dominant surface, hard shadow falls right. |
+| `turquesa` | Cold rim light upper-right at 30°, teal glaze on curved surfaces and component labels, soft catchlights on reflective pads, gradient falloff to black. |
+| `ambar` | Warm overhead fill at 45°, amber diffusion on organic textures and oxidized metal, gentle specular bloom, minimal hard shadows. |
 
 ## Output Format
 Return ONLY the `visual_prompt` string. One paragraph. No JSON, no markdown, no explanations.
