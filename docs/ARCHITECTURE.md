@@ -40,6 +40,9 @@ Cada carpeta dentro de una colección es un proyecto.
 -   **Estatus de Documentación** (`doc_status`): Define la etapa en el flujo de Tlacuilo (`borrador`, `revisión`, `promovido`, `traducción`, `publicado`). 
     -   *Almacenamiento*: Se guarda **exclusivamente** en la Memoria Local (`projects/{slug}/doc_state.json`). **NUNCA** en el Frontmatter del archivo final.
 -   **Visibilidad** (`draft`): Booleano en el Frontmatter que indica si el archivo está listo para el mundo o es privado.
+-   **Evidencias** (`shots/`): Subcarpeta para la gestión de activos visuales mediante Tlacuilo Ixtli.
+    -   *Estructura*: `projects/{collection}/{slug}/shots/{shot_id}/`.
+    -   *Contenido*: Metadatos del shot, historial de chat específico y variantes generadas.
 
 > [!NOTE]
 > Para detalles sobre cómo se manejan las discrepancias entre el Portafolio y la Memoria Local (ej. archivos faltantes), consultar [SYNCHRONIZATION.md](SYNCHRONIZATION.md).
@@ -325,43 +328,184 @@ El frontend debe llamar a estos dos endpoints en paralelo al cargar un proyecto.
         -   **Fallida (500)**: Error de escritura en disco.
 
 **E. Servicio de Tlacuilo Ixtli (`/studio`)**
-Puente con ComfyUI para generación de imágenes.
+Gestión de activos visuales mediante un flujo de **Borrador y Corrección** (sin chat persistente) y puente con ComfyUI.
 
--   `POST /api/studio/generate`: **Generar Imagen**.
-    -   **Responsabilidad**: Encolar un workflow en ComfyUI.
-    -   **Input**: `{ "prompt": "...", "base_image": "base64..." (opcional), "workflow_id": "txt2img|img2img" }`.
-    -   **Proceso**:
-        1.  Seleccionar workflow template.
-        2.  Inyectar prompt y semillas.
-        3.  Llamar a ComfyUI API (`POST /prompt`).
-    -   **Respuesta**: `{ "prompt_id": "comfy-uuid" }`.
+#### 1. Gestión de Evidencias (CRUD de Shots)
+Este servicio permite gestionar la "Lista de Tiro" (Shot List) del proyecto. Los metadatos de cada toma se guardan en `projects/{collection}/{slug}/shots/{shot_id}/metadata.json`.
 
--   `GET /api/studio/history/{prompt_id}`: **Consultar Estado**.
-    -   **Responsabilidad**: Polling del estado de la generación.
-    -   **Proceso**: Consultar ComfyUI history.
-    -   **Respuesta**: 
-        -   **Pendiente**: `{ "status": "running" }`.
-        -   **Listo**: `{ "status": "completed", "url": "http://comfyui:8188/view?filename=..." }`.
+- `POST /api/{collection}/{slug}/studio/suggest`: **Sugerir y Persistir Tomas**
+    - **Responsabilidad**: Analizar el archivo `{slug}.md` y crear físicamente las sugerencias de tomas en el sistema de archivos.
+    - **Input**: N/A.
+    - **Validation**: El proyecto debe existir y tener contenido Markdown legible.
+    - **Proceso Interno**: Ejecuta `prompts/strategies/shot_suggestion.md` con el contenido del MD. Por cada sugerencia retornada, invoca la lógica de creación de slot. El prompt de sugerencia **debe incluir** los campos de contexto Ixtli (`focus`, `atmosphere`) para evitar ciclos de corrección.
+    - **Contrato de Respuesta (Output)**:
+        - **Éxito (200)**: `[{"shot_id": "...", "title": "...", "description": "...", "type": "...", "focus": "¿Qué componente es el protagonista?", "atmosphere": "rojo|turquesa|ambar"}]`.
+        - **Falla (404)**: Proyecto no encontrado.
 
--   `POST /api/{collection}/{slug}/studio/save`: **Guardar Imagen**.
-    -   **Responsabilidad**: Descargar la imagen de ComfyUI y guardarla en la carpeta del proyecto.
-    -   **Input**: `{ "image_url": "...", "filename": "cover.png" }`.
-    -   **Proceso**:
-        1.  Descargar stream desde `image_url`.
-        2.  Guardar en `projects/{collection}/{slug}/public/assets/{filename}`.
-    -   **Respuesta**: `{ "local_path": "/assets/{filename}" }`.
+- `GET /api/{collection}/{slug}/studio/shots`: **Listar Tomas**
+    - **Responsabilidad**: Retornar la Shot List completa del proyecto con el estado actual de cada toma.
+    - **Input**: N/A.
+    - **Proceso Interno**: Escanea el directorio `shots/` y agrega los `metadata.json` existentes.
+    - **Contrato de Respuesta (Output)**:
+        - **Éxito (200)**: `[{"shot_id": "...", "title": "...", "type": "...", "status": "pending_upload|queued|generated|approved", "has_original": boolean, "visual_prompt": "...|null"}]`.
+    - **Escenarios de Negocio (Ciclo de vida del `status`)**: `pending_upload` (slot creado) → `queued` (enviado a ComfyUI) → `generated` (imagen disponible) → `approved` (imagen aceptada como válida).
 
-**F. Publicación Global (Git Ops)**
--   `POST /api/{collection}/{slug}/publish`: **Publicación Final**.
-    -   **Responsabilidad**: Marcar el proyecto como COMPLETADO y sincronizar con el repositorio remoto.
-    -   **Input**: `{}`.
-    -   **Validación**: Debe existir versión en Inglés (`en/{slug}.md`).
-    -   **Proceso**:
-        1.  **Estado**: Actualizar `doc_state.json` -> `doc_status: publicado`.
-        2.  **Sistema (No Agentes)**: El backend ejecuta comandos git (`add`, `commit`, `push`) de forma automatizada y segura. **NUNCA** delegar comandos git a los agentes.
-    -   **Respuesta**: 200 OK.
+- `POST /api/{collection}/{slug}/studio/shots`: **Crear Toma Manual**
+    - **Responsabilidad**: Crear manualmente un slot de toma sin pasar por la IA.
+    - **Input**:
+        ```json
+        {
+          "title": "...",
+          "description": "Descripción técnica del encuadre",
+          "type": "macro|context|conceptual",
+          "focus": "Componente protagonista (ej: press-fit entre pieza A y B)",
+          "atmosphere": "rojo|turquesa"
+        }
+        ```
+    - **Validation**: `title` y `atmosphere` obligatorios.
+    - **Proceso Interno**:
+        1. Genera `shot_id` (slug del título).
+        2. Crea carpeta `projects/{collection}/{slug}/shots/{shot_id}/`.
+        3. Inicializa `metadata.json` con `status: "pending_upload"` y todos los campos de contexto.
+    - **Contrato de Respuesta (Output)**:
+        - **Éxito (201)**: `{ "shot_id": "...", "status": "created" }`.
+        - **Falla (400)**: Título faltante, atmósfera inválida, o `shot_id` duplicado.
+
+- `GET /api/{collection}/{slug}/studio/shots/{shot_id}`: **Obtener Detalle de Toma**
+    - **Responsabilidad**: Recuperar metadatos completos de una toma específica.
+    - **Input**: N/A (ID en la URL).
+    - **Contrato de Respuesta (Output)**:
+        - **Éxito (200)**: Objeto completo de `metadata.json`.
+        - **Falla (404)**: Shot no encontrado.
+
+- `PATCH /api/{collection}/{slug}/studio/shots/{shot_id}`: **Actualizar Toma**
+    - **Responsabilidad**: Editar los metadatos de contexto de una toma ya creada (incluyendo `focus` y `atmosphere`).
+    - **Input**: `{ "title": "...", "description": "...", "focus": "...", "atmosphere": "rojo|turquesa" }` (todos opcionales).
+    - **Contrato de Respuesta (Output)**:
+        - **Éxito (200)**: `{ "shot_id": "...", "status": "updated" }`.
+        - **Falla (404)**: Shot no encontrado.
+
+- `DELETE /api/{collection}/{slug}/studio/shots/{shot_id}`: **Borrar Toma**
+    - **Responsabilidad**: Eliminación física (recursiva) de la carpeta `shots/{shot_id}/`.
+    - **Input**: N/A (ID en la URL).
+    - **Contrato de Respuesta (Output)**:
+        - **Éxito (204)**: Cuerpo vacío.
+        - **Falla (404)**: Shot no encontrado.
+
+#### 2. Flujo de Generación (Upload & Correct Loop)
+
+El flujo comprende **dos acciones**. Upload dispara todo el ciclo; Correct itera sobre el resultado anterior.
+
+**Estado del `metadata.json` a lo largo del ciclo:**
+`pending_upload` → `queued` → `generated` → (ciclos de corrección) → `generated`
+
+- `POST /api/{collection}/{slug}/studio/shots/{shot_id}/upload`: **Subir y Disparar Generación**
+    - **Responsabilidad**: Recibir la imagen de referencia y lanzar automáticamente el ciclo completo (Vision LLM → prompt → ComfyUI) sin intervención manual adicional.
+    - **Input**: `multipart/form-data` con campo `file` (PNG/JPG, máx. 10MB).
+    - **Validation**: Tipo de archivo imagen. El shot debe existir con `focus` y `atmosphere` definidos.
+    - **Proceso Interno (Pipeline automático)**:
+        1. Guarda la imagen como `shots/{shot_id}/original.png`.
+        2. Llama al Agente Ixtli (Vision LLM) pasando: `original.png` + `description` + **`focus`** + **`atmosphere`** del `metadata.json` para generar el `visual_prompt` sin ambigüedad.
+        3. Inyecta `visual_prompt` y `original.png` en el workflow `ixtli_generate.json` y encola la tarea.
+        4. Actualiza `metadata.json` → `status: "queued"`, guarda el `visual_prompt` generado y el `prompt_id` de ComfyUI.
+    - **Contrato de Respuesta (Output)**:
+        - **Éxito (202)**: `{ "prompt_id": "uuid-comfy", "status": "queued", "visual_prompt": "..." }`.
+        - **Falla (400)**: Archivo inválido o shot sin `focus`/`atmosphere` definidos.
+        - **Falla (404)**: Shot no encontrado.
+    - **Nota**: Re-subir una imagen reinicia el ciclo desde cero (nueva `original.png`, nuevo prompt, nueva generación).
+
+- `POST /api/{collection}/{slug}/studio/shots/{shot_id}/correct`: **Ciclo de Corrección**
+    - **Responsabilidad**: Aplicar una instrucción de corrección sobre la última imagen generada y enviar a ComfyUI de nuevo.
+    - **Input**: `{ "instruction": "El fondo más oscuro, menos blur en el objeto" }`.
+    - **Validation**: Debe existir una generación previa (`status: "generated"`). `instruction` es obligatorio.
+    - **Proceso Interno**:
+        1. Recupera el `visual_prompt` actual del `metadata.json`.
+        2. Llama al Agente Ixtli con el `visual_prompt` anterior + `instruction` para generar un `visual_prompt` refinado.
+        3. Encola en ComfyUI usando la última imagen generada como base (`img2img`).
+        4. Actualiza `metadata.json` → `status: "queued"`, sobreescribe el `visual_prompt`.
+    - **Contrato de Respuesta (Output)**:
+        - **Éxito (202)**: `{ "prompt_id": "uuid-comfy", "status": "queued", "visual_prompt": "..." }`.
+        - **Falla (400)**: No hay generación previa sobre la cual corregir.
+
+- `POST /api/{collection}/{slug}/studio/shots/{shot_id}/approve`: **Aprobar Imagen**
+    - **Responsabilidad**: Marcar una imagen generada como válida y definitiva para el shot. No mueve ni copia archivos.
+    - **Input**: `{ "filename": "nombre_del_archivo_generado.png" }` (nombre del archivo dentro de `shots/{shot_id}/`).
+    - **Validation**: El shot debe estar en `status: "generated"`.
+    - **Proceso Interno**: Actualiza `metadata.json` → `status: "approved"`, registra el `approved_filename`.
+    - **Contrato de Respuesta (Output)**:
+        - **Éxito (200)**: `{ "status": "approved", "approved_file": "..." }`.
+        - **Falla (400)**: Shot no tiene imagen generada aún.
+        - **Falla (404)**: Shot no encontrado.
+
+#### 3. Especificaciones para el Experto en ComfyUI (Ixtli)
+
+El Experto en ComfyUI es responsable de diseñar los workflows JSON que el Backend inyectará y ejecutará. Su entrega es un archivo JSON compatible con la API de ComfyUI.
+
+**Principio Central**: El usuario **nunca** debe dar instrucciones estéticas manuales ("quita el fondo", "cambia el color"). Toda decisión visual de tratamiento está **pre-codificada** en el diseño del workflow, basada en el **Códice de Imagen "Obsidiana Telemetría"**.
+
+---
+
+##### 3.1 Estética Obligatoria ("Obsidiana Telemetría")
+El workflow debe aplicar automáticamente estos parámetros sin excepción:
+
+| Parámetro | Valor |
+|---|---|
+| **Fondo** | Negro `#050505` — obligatorio, sin variación |
+| **Aspecto** | 1:1 cuadrado — obligatorio |
+| **Composición** | Sujeto centrado en franja horizontal 3:2; espacio negro en top/bottom |
+| **Iluminación** | Chiaroscuro dramático + rim lighting en `#D4442F` (Rojo) o `#00A6B6` (Turquesa) |
+| **Resolución** | 8k upscale final |
+| **Prohibido** | Fondos claros, alteración de geometría del hardware, distorsión de componentes |
+
+El **Agente Ixtli (Vision LLM)** alimenta el flujo. Su output es un `visual_prompt` describiendo el **objeto y la técnica** (no la estética — la estética ya está en el workflow).
+
+---
+
+##### 3.2 Mapa de Nodos (Interface Contract con el Backend)
+El Backend inyecta los valores dinámicos en los siguientes nodos. **Sus IDs son fijos e inamovibles**:
+
+| Node ID | Tipo | Valor Inyectado |
+|---|---|---|
+| `Node 3` | KSampler | Seed aleatoria, Steps: 30, CFG: 7 |
+| `Node 6` | CLIPTextEncode (+) | `visual_prompt` del `metadata.json` |
+| `Node 7` | CLIPTextEncode (−) | Prompt negativo estándar (`blurry, low quality, bright background, distorted`) |
+| `Node 10` | LoadImage | Ruta a `shots/{shot_id}/original.png` |
+| `Node 11` | JoyCaption / VLM | Análisis automático de la imagen (contexto del objeto) |
+
+**Regla**: El Experto **no puede** cambiar los IDs de estos nodos. Puede añadir nodos auxiliares con IDs adicionales.
+
+---
+
+##### 3.3 Flujos Requeridos
+El Experto debe entregar **dos workflows JSON**:
+
+1. **`ixtli_generate.json`** (`txt2img` + `img2img` con ControlNet): Flujo primario. Toma `original.png` como referencia (ControlNet Depth/Canny), aplica el `visual_prompt`, y genera 4 variantes.
+2. **`ixtli_correct.json`** (`img2img`): Flujo de corrección. Toma la última imagen generada como base, aplica el `visual_prompt` refinado. Preserve la geometría del sujeto.
+
+---
+
+##### 3.4 Reglas de Integridad de Hardware
+- **Nunca** generar un componente diferente al de la foto original.
+- **Nunca** modificar la topología de circuitos, posición de piezas ni cableado.
+- Si el modelo altera la geometría del hardware, el workflow debe incluir un nodo de control que lo detecte (p. ej., ControlNet Canny alto-peso).
+- **Salida**: 4 variantes en batch. El Backend las recupera y las guarda en `shots/{shot_id}/`. El usuario elige una con `/approve`.
 
 
+**F. Servicio de Publicación (`/publish`)**
+Operación de sistema que cierra el ciclo completo de documentación y sincroniza el portafolio con el repositorio remoto. Es una acción global del proyecto, independiente de cualquier flujo de contenido o imagen.
+
+- `POST /api/{collection}/{slug}/publish`: **Publicación al Portafolio**
+    - **Responsabilidad**: Marcar el proyecto como COMPLETADO y sincronizar la Verdad Técnica con el repositorio remoto.
+    - **Input**: `{}`.
+    - **Validation**:
+        1. Debe existir versión en Inglés (`en/{slug}.md`).
+        2. El `doc_status` debe ser distinto de `publicado` (evitar re-publicaciones innecesarias).
+    - **Proceso Interno**:
+        1. Actualiza `doc_state.json` → `doc_status: publicado`.
+        2. El Sistema (no agentes) ejecuta `git add`, `git commit`, `git push` sobre el portafolio de forma automatizada. **NUNCA** delegar comandos git a los agentes.
+    - **Contrato de Respuesta (Output)**:
+        - **Éxito (200)**: `{ "status": "publicado" }`.
+        - **Falla (400)**: Falta versión en Inglés.
 
 ## 4. Protocolos de Sincronización y Alineación
 
@@ -397,6 +541,7 @@ Tlacuilo utiliza un sistema de **Prompts Composicionales**, donde la instrucció
 | **Strategy** | `prompts/strategies/mind_strategy.md` | Lógica de extracción para ensayos y reflexiones. |
 | **Strategy** | `prompts/strategies/draft_generation.md` | Instrucciones de ensamblaje final y blindaje de Frontmatter. |
 | **Strategy** | `prompts/strategies/english_translation.md` | Reglas de translocalización técnica y preservación de términos. |
+| **System** | `prompts/system/tlacuilo_ixtli.md` | Persona "Tlacuilo Ixtli" (Director Visual). Experto en fotografía técnica. |
 
 ### B. Mapeo de Servicios vs Prompts
 El Backend orquesta la inyección según el endpoint:
@@ -407,6 +552,7 @@ El Backend orquesta la inyección según el endpoint:
 | `/message` | `tlacuilo_digital.md` | Seguimiento de la estrategia cargada en sesión. |
 | `/draft` | `tlacuilo_digital.md` | `draft_generation.md` + Strategy de Colección. |
 | `/translate/draft` | `tlacuilo_global.md` | `english_translation.md`. |
+| `/studio/*` | `tlacuilo_ixtli.md` | Ciclo de sugerencia y refinamiento visual. |
 
 ### C. Reglas de Construcción de Prompts
 Para mantener la calidad de la asistencia, todo prompt en Tlacuilo debe seguir estos axiomas:
