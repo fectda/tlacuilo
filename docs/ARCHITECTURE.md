@@ -343,16 +343,16 @@ El archivo debe contener única y exclusivamente la siguiente estructura. No se 
   "type": "...",
   "focus": "...",
   "atmosphere": "...",
-  "images": {
-    "uuid_comfly_1": {
+  "images": [
+    {
         "status": "queue | generated | error",
-        "path": "nombre_archivo_1.png"
+        "id": "uuid_comfly_1"
     },
-    "uuid_comfly_2": {
+    {
         "status": "generated",
-        "path": "nombre_archivo_2.png"
+        "id": "uuid_comfly_2"
     }
-  }
+  ]
 }
 ```
 
@@ -432,7 +432,7 @@ El flujo comprende **dos acciones**. Upload dispara todo el ciclo; Correct itera
         3. Encola la tarea en ComfyUI.
         4. Actualiza `metadata.json` agregando al diccionario `images` el primer resultado.
     - **Contrato de Respuesta (Output)**:
-        - **Éxito (202)**: `{}`.
+        - **Éxito (202)**: `{images:[]}`.
         - **Falla (400)**: Archivo inválido o shot sin `focus`/`atmosphere` definidos.
         - **Falla (404)**: Shot no encontrado.
     - **Nota**: Re-subir una imagen reinicia el ciclo desde cero (nueva `original.png`, nuevo prompt, nueva generación).
@@ -444,6 +444,14 @@ El flujo comprende **dos acciones**. Upload dispara todo el ciclo; Correct itera
         - **Éxito (200)**: Retorna la lista de imágenes.
         - **Falla (404)**: Shot no encontrado.
 
+- `GET /api/{collection}/{slug}/studio/shots/{shot_id}/image/{comfly_id}`: **Obtener Archivo de Imagen**
+    - **Responsabilidad**: Retornar el flujo binario (imagen) de una variante específica identificada por su `comfly_id`.
+    - **Input**: Parámetros de ruta.
+    - **Validation**: El `comfly_id` debe existir en el diccionario `images` y el archivo debe existir físicamente en el disco.
+    - **Contrato de Respuesta (Output)**:
+        - **Éxito (200)**: Stream binario de la imagen (`image/png`).
+        - **Falla (404)**: Imagen o Shot no encontrado.
+
 - `POST /api/{collection}/{slug}/studio/shots/{shot_id}/correct`: **Ciclo de Corrección**
     - **Responsabilidad**: Aplicar una instrucción de corrección sobre una imagen específica generada previamente y enviar a ComfyUI de nuevo.
     - **Input**: `{ "instruction": "El fondo más oscuro, menos blur en el objeto", "comfly_id": "uuid_de_la_imagen_base" }`.
@@ -454,7 +462,7 @@ El flujo comprende **dos acciones**. Upload dispara todo el ciclo; Correct itera
         3. Encola en ComfyUI.
         4. Actualiza `metadata.json` agregando al diccionario `images` el nuevo resultado devuelto por ComfyUI.
     - **Contrato de Respuesta (Output)**:
-        - **Éxito (202)**: `{}`.
+        - **Éxito (202)**: `{images:[]}`.
         - **Falla (400)**: `comfly_id` no válido o sin generación previa.
 
 - `POST /api/{collection}/{slug}/studio/shots/{shot_id}/approve`: **Aprobar Imagen**
@@ -466,7 +474,7 @@ El flujo comprende **dos acciones**. Upload dispara todo el ciclo; Correct itera
         2. Establece el estado de la imagen seleccionada (`comfly_id`) a `approved`.
         3. Guarda los cambios en `metadata.json`.
     - **Contrato de Respuesta (Output)**:
-        - **Éxito (200)**: `{ "status": "approved", "comfly_id": "..." }`.
+        - **Éxito (200)**: `{images:[]}`.
         - **Falla (400)**: `comfly_id` no válido o no disponible para aprobación.
         - **Falla (404)**: Shot no encontrado.
 
@@ -480,7 +488,7 @@ El flujo comprende **dos acciones**. Upload dispara todo el ciclo; Correct itera
         3. Elimina la entrada del diccionario `images`.
         4. Guarda los cambios en `metadata.json`.
     - **Contrato de Respuesta (Output)**:
-        - **Éxito (204)**: Cuerpo vacío.
+        - **Éxito (204)**: `{images:[]}`.
         - **Falla (404)**: Imagen o Shot no encontrado.
 
 #### 3. Especificaciones para el Experto en ComfyUI (Ixtli)
