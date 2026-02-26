@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, UploadFile, File, Response
+from fastapi.responses import FileResponse
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 import logging
@@ -52,9 +53,10 @@ class UpdateShotRequest(BaseModel):
 
 class CorrectShotRequest(BaseModel):
     instruction: str
+    comfly_id: str
 
 class ApproveShotRequest(BaseModel):
-    filename: str
+    comfly_id: str
 
 # --- Endpoints ---
 
@@ -122,6 +124,20 @@ def get_shot(
         raise HTTPException(status_code=404, detail=str(e))
 
 
+@router.get("/{collection}/{slug}/studio/shots/{shot_id}/image/{comfly_id}", status_code=200)
+def get_image(
+    collection: str, slug: str, shot_id: str, comfly_id: str,
+    service: StudioService = Depends(get_studio_service)
+):
+    """GET /api/{collection}/{slug}/studio/shots/{shot_id}/image/{comfly_id} — Get image file."""
+    try:
+        return service.get_image(collection, slug, shot_id, comfly_id)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.patch("/{collection}/{slug}/studio/shots/{shot_id}", status_code=200)
 def update_shot(
     collection: str, slug: str, shot_id: str,
@@ -182,7 +198,7 @@ async def correct_shot(
 ):
     """POST /api/{collection}/{slug}/studio/shots/{shot_id}/correct — Correction cycle."""
     try:
-        return await service.correct_shot(collection, slug, shot_id, body.instruction)
+        return await service.correct_shot(collection, slug, shot_id, body.instruction, body.comfly_id)
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except ValueError as e:
@@ -200,11 +216,26 @@ def approve_shot(
 ):
     """POST /api/{collection}/{slug}/studio/shots/{shot_id}/approve — Approve an image."""
     try:
-        return service.approve_shot(collection, slug, shot_id, body.filename)
+        return service.approve_shot(collection, slug, shot_id, body.comfly_id)
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@router.delete("/{collection}/{slug}/studio/shots/{shot_id}/image/{comfly_id}", status_code=200)
+def delete_variant(
+    collection: str, slug: str, shot_id: str, comfly_id: str,
+    service: StudioService = Depends(get_studio_service)
+):
+    """DELETE /api/{collection}/{slug}/studio/shots/{shot_id}/image/{comfly_id} — Delete an image variant."""
+    try:
+        return service.delete_variant(collection, slug, shot_id, comfly_id)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error in delete_variant: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # 3. ComfyUI Status Polling
@@ -212,36 +243,13 @@ def approve_shot(
 @router.get("/{collection}/{slug}/studio/shots/{shot_id}/status", status_code=200)
 async def poll_generation_status(
     collection: str, slug: str, shot_id: str,
-    service: StudioService = Depends(get_studio_service),
-    comfy: ComfyUIClient = Depends(get_comfy),
-    repo: ProjectRepository = Depends(get_repository)
+    service: StudioService = Depends(get_studio_service)
 ):
     """GET /api/{collection}/{slug}/studio/shots/{shot_id}/status — Poll ComfyUI status."""
-    meta = service.get_shot(collection, slug, shot_id)
-    prompt_id = meta.get("prompt_id")
-    if not prompt_id:
-        return {"status": meta.get("status", "pending_upload")}
-
     try:
-        comfy_status = await comfy.get_status(prompt_id)
-        if comfy_status["status"] == "completed":
-            # Download and save generated images
-            shot_dir = service._shot_dir(collection, slug, shot_id)
-            outputs = comfy_status.get("outputs", {})
-            saved = []
-            for node_id, node_output in outputs.items():
-                for img in node_output.get("images", []):
-                    fn = img["filename"]
-                    dest = shot_dir / f"generated_{fn}"
-                    await comfy.download_image(fn, dest)
-                    saved.append(dest.name)
-
-            # Update status to 'generated'
-            meta["status"] = "generated"
-            service._save_shot_metadata(collection, slug, shot_id, meta)
-            return {"status": "generated", "files": saved}
-
-        return comfy_status
+        return await service.poll_status(collection, slug, shot_id)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
         logger.error(f"Error polling ComfyUI: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))

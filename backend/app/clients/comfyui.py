@@ -3,6 +3,7 @@ import logging
 import shutil
 from pathlib import Path
 from typing import Dict, Any, Optional
+import json
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,19 @@ class ComfyUIClient:
             logger.error(f"Error calling ComfyUI: {e}")
             raise Exception(f"ComfyUI connection error: {str(e)}")
 
+    async def upload_image(self, image_path: Path) -> str:
+        """Upload an image to ComfyUI and return the server filename."""
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                with open(image_path, "rb") as f:
+                    files = {"image": (image_path.name, f, "image/png")}
+                    response = await client.post(f"{self.host}/upload/image", files=files)
+                    response.raise_for_status()
+                    return response.json()["name"]
+        except Exception as e:
+            logger.error(f"Error uploading image to ComfyUI: {e}")
+            raise Exception(f"ComfyUI upload error: {str(e)}")
+
     async def get_status(self, prompt_id: str) -> Dict[str, Any]:
         """Poll the state of a generation from ComfyUI history."""
         try:
@@ -43,9 +57,9 @@ class ComfyUIClient:
             logger.error(f"Error polling ComfyUI: {e}")
             raise Exception(f"ComfyUI polling error: {str(e)}")
 
-    async def download_image(self, filename: str, dest_path: Path):
+    async def download_image(self, filename: str, subfolder: str, folder_type: str, dest_path: Path):
         """Download a generated image from ComfyUI and save to dest_path."""
-        url = f"{self.host}/view?filename={filename}"
+        url = f"{self.host}/view?filename={filename}&subfolder={subfolder}&type={folder_type}"
         async with httpx.AsyncClient(timeout=60.0) as client:
             async with client.stream("GET", url) as response:
                 response.raise_for_status()
@@ -54,33 +68,45 @@ class ComfyUIClient:
                     async for chunk in response.aiter_bytes():
                         f.write(chunk)
 
-    def build_generate_workflow(self, visual_prompt: str, original_image_path: str, seed: int) -> Dict[str, Any]:
-        """Build and inject values into the ixtli_generate workflow."""
-        workflow_path = settings.PROMPTS_PATH / ".." / "workflows" / "ixtli_generate.json"
+    def build_generate_workflow(self, visual_prompt: str, server_filename: str, seed: int) -> Dict[str, Any]:
+        """Build and inject values into the ixtli_generate_api workflow."""
+        workflow_path = settings.PROMPTS_PATH / ".." / "workflows" / "ixtli_generate_api.json"
         import json
         if not workflow_path.exists():
             raise FileNotFoundError(f"Workflow not found: {workflow_path}")
         with open(workflow_path) as f:
             workflow = json.load(f)
 
-        # Inject dynamic values per Node Map (3.2 ARCHITECTURE)
-        workflow["3"]["inputs"]["seed"] = seed
-        workflow["6"]["inputs"]["text"] = visual_prompt
-        workflow["7"]["inputs"]["text"] = NEGATIVE_PROMPT
-        workflow["10"]["inputs"]["image"] = original_image_path
+        # Inject dynamic values per demo script
+        if "1" in workflow:
+            workflow["1"]["inputs"]["image"] = server_filename
+        if "86:74" in workflow:
+            workflow["86:74"]["inputs"]["text"] = visual_prompt
+        
+        # Seeds
+        if "55:73" in workflow:
+            workflow["55:73"]["inputs"]["noise_seed"] = seed
+        if "86:73" in workflow:
+            workflow["86:73"]["inputs"]["noise_seed"] = seed
+
         return workflow
 
-    def build_correct_workflow(self, visual_prompt: str, base_image_path: str, seed: int) -> Dict[str, Any]:
-        """Build and inject values into the ixtli_correct workflow."""
-        workflow_path = settings.PROMPTS_PATH / ".." / "workflows" / "ixtli_correct.json"
-        import json
+    def build_correct_workflow(self, visual_prompt: str, server_filename: str, seed: int) -> Dict[str, Any]:
+        """Build and inject values into the ixtli_correct_api workflow."""
+        workflow_path = settings.PROMPTS_PATH / ".." / "workflows" / "ixtli_correct_api.json"
         if not workflow_path.exists():
             raise FileNotFoundError(f"Workflow not found: {workflow_path}")
         with open(workflow_path) as f:
             workflow = json.load(f)
 
-        workflow["3"]["inputs"]["seed"] = seed
-        workflow["6"]["inputs"]["text"] = visual_prompt
-        workflow["7"]["inputs"]["text"] = NEGATIVE_PROMPT
-        workflow["10"]["inputs"]["image"] = base_image_path
+        # Inject dynamic values per demo script
+        if "1" in workflow:
+            workflow["1"]["inputs"]["image"] = server_filename
+        if "86:74" in workflow:
+            workflow["86:74"]["inputs"]["text"] = visual_prompt
+            
+        # Refiner seed to force variation
+        if "86:73" in workflow:
+            workflow["86:73"]["inputs"]["noise_seed"] = seed
+
         return workflow

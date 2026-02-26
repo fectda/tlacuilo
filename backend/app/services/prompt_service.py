@@ -57,3 +57,19 @@ class PromptService:
     def get_translator_prompt(self) -> str:
         path = self.prompts_path / "system" / "translator.md"
         return self.load_prompt(path)
+
+    def get_ixtli_base(self) -> str:
+        path = self.prompts_path / "strategies" / "ixtli" / "base.md"
+        return self.load_prompt(path).strip()
+
+    def get_ixtli_type(self, shot_type: str) -> str:
+        path = self.prompts_path / "strategies" / "ixtli" / f"type_{shot_type}.md"
+        return self.load_prompt(path).strip()
+
+    def get_ixtli_atm(self, atmosphere: str) -> str:
+        path = self.prompts_path / "strategies" / "ixtli" / f"atm_{atmosphere}.md"
+        return self.load_prompt(path).strip()
+
+    def get_ixtli_quality(self) -> str:
+        path = self.prompts_path / "strategies" / "ixtli" / "quality.md"
+        return self.load_prompt(path).strip()
