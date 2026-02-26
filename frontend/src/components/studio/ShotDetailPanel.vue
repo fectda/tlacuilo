@@ -29,16 +29,82 @@ const fileInput = ref(null)
 const correctionText = ref('')
 const isEditingMeta = ref(false)
 const metaEdit = ref({})
+const selectedComflyId = ref(null)
+const pollingInterval = ref(null)
+
+// --- Polling logic ---
+const startPolling = () => {
+    if (pollingInterval.value) return
+    console.log('Starting polling for shot:', shot.value?.shot_id)
+    pollingInterval.value = setInterval(async () => {
+        if (!shot.value) {
+            stopPolling()
+            return
+        }
+        const images = await studioStore.pollShotStatus(props.collection, props.slug, shot.value.shot_id)
+        const stillQueued = (images || []).some(img => img.status === 'queue')
+        if (!stillQueued) {
+            console.log('All images processed, stopping polling.')
+            stopPolling()
+        }
+    }, 3000)
+}
+
+const stopPolling = () => {
+    if (pollingInterval.value) {
+        clearInterval(pollingInterval.value)
+        pollingInterval.value = null
+    }
+}
+
+// Watch for any image in queue to start/stop polling
+watch(() => shot.value?.images, (images) => {
+    const hasQueuedImages = (images || []).some(img => img.status === 'queue')
+    if (hasQueuedImages) {
+        startPolling()
+    } else {
+        stopPolling()
+    }
+}, { immediate: true, deep: true })
+
+// Watch images to keep selection in sync but NOT force edit mode on every update
+watch(() => shot.value?.images, (images) => {
+    if (!images || !images.length) {
+        selectedComflyId.value = null
+        return
+    }
+    
+    // If we have an approved one, ensure it's selected (priority)
+    const approvedImg = images.find(img => img.status === 'approved')
+    if (approvedImg && selectedComflyId.value !== approvedImg.id) {
+        selectedComflyId.value = approvedImg.id
+        return
+    }
+
+    // If current selection is no longer in the list, clear it
+    if (selectedComflyId.value && !images.find(img => img.id === selectedComflyId.value)) {
+        selectedComflyId.value = null
+    }
+}, { immediate: true })
 
 // --- BUGFIX: Reset edit mode when shot selection changes ---
 watch(() => studioStore.currentShot?.shot_id, () => {
     isEditingMeta.value = false
     correctionText.value = ''
+    selectedComflyId.value = null
+    stopPolling()
 })
 
 // Accent color for atmosphere
 const atmosphereAccent = { rojo: '#D4442F', turquesa: '#00A6B6', ambar: '#F59E0B' }
 const accent = computed(() => atmosphereAccent[shot.value?.atmosphere] || '#6b7280')
+
+// Image URL helper with cache buster
+const getImageUrl = (id) => {
+    const baseUrl = StudioService.getShotImageUrl(props.collection, props.slug, shot.value.shot_id, id)
+    // We add a timestamp to force reload if the image just finished processing
+    return `${baseUrl}?t=${Date.now()}`
+}
 
 // Original image URL
 const originalUrl = computed(() =>
@@ -83,15 +149,23 @@ const handleFileSelected = async (e) => {
 
 // Correct
 const handleCorrect = async () => {
-    if (!correctionText.value.trim()) return
-    await studioStore.correctShot(props.collection, props.slug, shot.value.shot_id, correctionText.value.trim())
+    if (!correctionText.value.trim() || !selectedComflyId.value) return
+    await studioStore.correctShot(props.collection, props.slug, shot.value.shot_id, correctionText.value.trim(), selectedComflyId.value)
     correctionText.value = ''
 }
 
 // Approve
 const handleApprove = async () => {
-    const filename = shot.value.approved_filename || 'generated.png'
-    await studioStore.approveShot(props.collection, props.slug, shot.value.shot_id, filename)
+    if (!selectedComflyId.value) return
+    await studioStore.approveShot(props.collection, props.slug, shot.value.shot_id, selectedComflyId.value)
+}
+
+// Delete Variant
+const handleDeleteVariant = async (comflyId) => {
+    if (confirm('¿Eliminar esta variante permanentemente?')) {
+        await studioStore.deleteImage(props.collection, props.slug, shot.value.shot_id, comflyId)
+        if (selectedComflyId.value === comflyId) selectedComflyId.value = null
+    }
 }
 </script>
 
@@ -110,6 +184,16 @@ const handleApprove = async () => {
                 <div class="flex items-center gap-3 mb-1.5">
                     <div class="w-1 h-5 shrink-0" :style="{ background: accent }"></div>
                     <h2 class="text-[13px] font-black tracking-widest uppercase text-white flex-1">{{ shot.title }}</h2>
+                    
+                    <!-- Manual Polling Trigger -->
+                    <button
+                        v-if="shot.images?.some(img => img.status === 'queue') && !pollingInterval"
+                        @click="startPolling"
+                        class="px-2 py-1 bg-amber-500/10 border border-amber-500/40 text-amber-500 text-[9px] font-black uppercase tracking-widest hover:bg-amber-500 hover:text-black transition-all"
+                    >
+                        ↻ Resume Polling
+                    </button>
+
                     <button
                         @click="emit('delete-shot', shot.shot_id)"
                         title="Eliminar shot"
@@ -264,16 +348,106 @@ const handleApprove = async () => {
                         </div>
                     </section>
 
-                    <!-- ── Reference Photo ───────────────────────────── -->
-                    <section v-if="originalUrl" class="space-y-2">
+                    <!-- ── Reference Photo (Only if no variants) ───────────────────────────── -->
+                    <section v-if="originalUrl && (!shot.images || !shot.images.length)" class="space-y-2">
                         <p class="text-[9px] text-neutral-300 font-black uppercase tracking-[0.25em]">Reference Photo</p>
-                        <img :src="originalUrl" alt="original" class="w-full border border-white/10 object-cover" />
+                        <div class="aspect-[3/2] bg-black border border-white/10 overflow-hidden">
+                            <img :src="originalUrl" alt="original" class="w-full h-full object-cover" />
+                        </div>
+                    </section>
+
+                    <!-- ── Workspace Gallery ────────────────────────────── -->
+                    <section v-if="shot.images && shot.images.length" class="space-y-3">
+                        <p class="text-[9px] text-neutral-300 font-black uppercase tracking-[0.25em]">Generated Variants</p>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div
+                                v-for="img in shot.images"
+                                :key="img.id"
+                                :class="[
+                                    'relative aspect-[3/2] border transition-all overflow-hidden flex flex-col bg-black',
+                                    selectedComflyId === img.id ? 'border-white ring-1 ring-white' : 'border-white/10 hover:border-white/20'
+                                ]"
+                            >
+                                <!-- Loading state (Always shows if queued, regardless of selection) -->
+                                <div v-if="img.status === 'queue'" class="absolute inset-0 flex flex-col items-center justify-center gap-2 z-30 bg-black/60 backdrop-blur-[2px]">
+                                    <div class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></div>
+                                    <span class="text-[8px] text-amber-500 font-black tracking-widest uppercase">Processing</span>
+                                </div>
+
+                                <!-- View Layer (Image) -->
+                                <div 
+                                    v-if="selectedComflyId !== img.id" 
+                                    @click="selectedComflyId = img.id"
+                                    class="absolute inset-0 cursor-pointer group"
+                                >
+                                    <img :src="getImageUrl(img.id)"
+                                         class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                                    <!-- Mini Badges -->
+                                    <div v-if="img.status === 'approved'" class="absolute top-2 right-2 bg-cyan-500 text-black px-1.5 py-0.5 text-[7px] font-black uppercase">Approved ✓</div>
+                                </div>
+
+                                <!-- Action Layer (Overlay when selected) -->
+                                <div v-else-if="img.status !== 'queue'" class="absolute inset-0 bg-[#080808] flex flex-col z-20">
+                                    <!-- Header -->
+                                    <div class="flex items-center justify-between px-3 py-2 border-b border-white/5 shrink-0">
+                                        <span class="text-[8px] text-neutral-500 font-bold uppercase tracking-widest">{{ img.id.split('-')[0] }}</span>
+                                        <button @click.stop="selectedComflyId = null" class="text-neutral-500 hover:text-white text-[9px] font-black uppercase">✕ CLOSE</button>
+                                    </div>
+
+                                    <!-- Body: Correction -->
+                                    <div class="flex-1 p-3 flex flex-col min-h-0 space-y-2 overflow-y-auto custom-scrollbar">
+                                        <div class="space-y-2 flex-1 flex flex-col pt-1">
+                                            <p class="text-[9px] text-neutral-300 font-black uppercase tracking-[0.2em]">Refinement Instructions</p>
+                                            <textarea
+                                                v-model="correctionText" rows="2"
+                                                placeholder="Describe changes (e.g. 'more contrast', 'focus on chip')..."
+                                                class="flex-1 w-full bg-[#111] border-2 border-white/20 p-2.5 text-[11px] text-white focus:outline-none focus:border-white/60 resize-none placeholder-neutral-600 shadow-inner"
+                                            ></textarea>
+                                            <button
+                                                @click="handleCorrect"
+                                                :disabled="studioStore.isGenerating || !correctionText.trim()"
+                                                class="w-full py-2.5 text-black text-[10px] font-black uppercase tracking-[0.25em] transition-all disabled:opacity-20 disabled:grayscale shrink-0 shadow-[0_4px_0_0_rgba(0,0,0,0.3)] active:translate-y-0.5 active:shadow-none"
+                                                :style="{ background: accent }"
+                                            >
+                                                ✦ REGENERATE VARIANT
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Footer: Status Actions (Approve & Discard) -->
+                                    <div class="flex border-t border-white/10 shrink-0 bg-black/40">
+                                        <!-- State: Approved -->
+                                        <div v-if="img.status === 'approved'"
+                                            class="flex-1 py-2 bg-cyan-500 text-black text-[8px] font-black uppercase tracking-widest border-r border-white/10 text-center flex items-center justify-center"
+                                        >
+                                            Approved ✓
+                                        </div>
+
+                                        <!-- State: Generated -->
+                                        <button
+                                            v-else-if="img.status === 'generated'"
+                                            @click="handleApprove"
+                                            class="flex-1 py-2 bg-emerald-950/20 text-emerald-500 text-[8px] font-black uppercase tracking-widest border-r border-white/10 hover:bg-emerald-600 hover:text-white transition-all"
+                                        >
+                                            ✓ Approve
+                                        </button>
+
+                                        <button
+                                            @click="handleDeleteVariant(img.id)"
+                                            class="flex-1 py-2 text-neutral-600 hover:text-red-500 text-[8px] font-black uppercase tracking-widest hover:bg-red-950/30 transition-all"
+                                        >
+                                            ✕ Discard
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </section>
 
                     <!-- ── Upload ────────────────────────────────────── -->
                     <section class="space-y-3">
                         <p class="text-[9px] text-neutral-300 font-black uppercase tracking-[0.25em]">
-                            {{ shot.has_original ? 'Re-Upload & Regenerate' : 'Upload Reference Photo' }}
+                            {{ shot.has_original ? 'Re-Upload & Restart' : 'Upload Reference Photo' }}
                         </p>
 
                         <div v-if="!shot.focus || !shot.atmosphere"
@@ -292,57 +466,8 @@ const handleApprove = async () => {
                             onmouseleave="this.style.background='transparent'"
                         >
                             <span v-if="studioStore.isGenerating">PROCESANDO…</span>
-                            <span v-else>{{ shot.has_original ? '↺ RE-UPLOAD & GENERATE' : '↑ UPLOAD & GENERATE' }}</span>
+                            <span v-else>{{ shot.has_original ? '↺ RE-UPLOAD & RESTART' : '↑ UPLOAD & GENERATE' }}</span>
                         </button>
-                    </section>
-
-                    <!-- ── Queued State ───────────────────────────────── -->
-                    <section v-if="shot.status === 'queued'"
-                        class="py-6 border border-amber-500/30 bg-amber-500/5 text-center space-y-3">
-                        <div class="flex justify-center gap-1.5">
-                            <div v-for="i in 3" :key="i"
-                                class="w-2 h-2 rounded-full bg-amber-400 animate-bounce"
-                                :style="{ animationDelay: (i * 0.2) + 's' }"></div>
-                        </div>
-                        <p class="text-[10px] font-black tracking-[0.3em] text-amber-400 uppercase">Procesando en ComfyUI</p>
-                        <p class="text-[8px] text-neutral-500">prompt_id: {{ shot.prompt_id }}</p>
-                    </section>
-
-                    <!-- ── Correction ─────────────────────────────────── -->
-                    <section v-if="shot.status === 'generated' || shot.status === 'approved'" class="space-y-3">
-                        <p class="text-[9px] text-neutral-300 font-black uppercase tracking-[0.25em]">Correction Loop</p>
-                        <textarea
-                            v-model="correctionText" rows="2"
-                            placeholder="e.g. Darker background, sharper focus on solder joints…"
-                            :disabled="studioStore.isGenerating"
-                            class="w-full bg-[#0a0a0a] border border-white/20 p-3 text-[11px] text-white focus:outline-none focus:border-white resize-none placeholder-neutral-600 disabled:opacity-40"
-                        ></textarea>
-                        <button
-                            @click="handleCorrect"
-                            :disabled="studioStore.isGenerating || !correctionText.trim()"
-                            class="w-full py-2.5 text-[10px] font-black uppercase tracking-[0.25em] border transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                            :style="{ borderColor: accent + '60', color: accent }"
-                        >
-                            APPLY CORRECTION
-                        </button>
-                    </section>
-
-                    <!-- ── Approve ─────────────────────────────────────── -->
-                    <section v-if="shot.status === 'generated'" class="space-y-3">
-                        <p class="text-[9px] text-neutral-300 font-black uppercase tracking-[0.25em]">Approve Result</p>
-                        <button
-                            @click="handleApprove"
-                            class="w-full py-3 text-[10px] font-black uppercase tracking-[0.25em] border border-emerald-500/40 text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 transition-all"
-                        >
-                            ✓ APPROVE SHOT
-                        </button>
-                    </section>
-
-                    <!-- ── Approved Badge ──────────────────────────────── -->
-                    <section v-if="shot.status === 'approved'"
-                        class="py-5 border border-cyan-500/30 bg-cyan-500/5 text-center space-y-1">
-                        <p class="text-[11px] font-black tracking-[0.3em] text-cyan-400 uppercase">Shot Approved</p>
-                        <p class="text-[8px] text-neutral-500">{{ shot.approved_filename }}</p>
                     </section>
 
                 </div>

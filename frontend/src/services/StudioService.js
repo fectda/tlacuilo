@@ -34,41 +34,53 @@ export default {
 
     // ---- Generation Pipeline ----
 
-    async uploadAndGenerate(collection, slug, shotId, file) {
+    async uploadAndGenerate(collection, slug, shot_id, file) {
         const formData = new FormData();
         formData.append('file', file);
         const response = await api.post(
-            `/${collection}/${slug}/studio/shots/${shotId}/upload`,
+            `/${collection}/${slug}/studio/shots/${shot_id}/upload`,
             formData,
             { headers: { 'Content-Type': 'multipart/form-data' } }
         );
         return response.data;
     },
 
-    async correctShot(collection, slug, shotId, instruction) {
+    async getShotStatus(collection, slug, shot_id) {
+        const response = await api.get(`/${collection}/${slug}/studio/shots/${shot_id}/status`);
+        return response.data;
+    },
+
+    async correctShot(collection, slug, shot_id, instruction, comfly_id) {
         const response = await api.post(
-            `/${collection}/${slug}/studio/shots/${shotId}/correct`,
-            { instruction }
+            `/${collection}/${slug}/studio/shots/${shot_id}/correct`,
+            { instruction, comfly_id }
         );
         return response.data;
     },
 
-    async approveShot(collection, slug, shotId, filename) {
+    async approveShot(collection, slug, shot_id, comfly_id) {
         const response = await api.post(
-            `/${collection}/${slug}/studio/shots/${shotId}/approve`,
-            { filename }
+            `/${collection}/${slug}/studio/shots/${shot_id}/approve`,
+            { comfly_id }
         );
+        return response.data;
+    },
+
+    async deleteImage(collection, slug, shot_id, comfly_id) {
+        const response = await api.delete(`/${collection}/${slug}/studio/shots/${shot_id}/image/${comfly_id}`);
         return response.data;
     },
 
     // ---- Utilities ----
 
-    getShotImageUrl(collection, slug, shotId, filename) {
+    getShotImageUrl(collection, slug, shot_id, comfly_id) {
         const base = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
-        return `${base}/${collection}/${slug}/studio/shots/${shotId}/image/${filename}`;
+        return `${base}/${collection}/${slug}/studio/shots/${shot_id}/image/${comfly_id}`;
     },
 
-    getOriginalImageUrl(collection, slug, shotId) {
-        return this.getShotImageUrl(collection, slug, shotId, 'original.png');
+    getOriginalImageUrl(collection, slug, shot_id) {
+        // According to section 3.E.2, we have a binary endpoint per comfly_id.
+        // We use 'original' as a reserved ID for the base photo.
+        return this.getShotImageUrl(collection, slug, shot_id, 'original');
     },
 };
