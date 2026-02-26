@@ -457,10 +457,10 @@ El flujo comprende **dos acciones**. Upload dispara todo el ciclo; Correct itera
     - **Input**: `{ "instruction": "El fondo más oscuro, menos blur en el objeto", "comfly_id": "uuid_de_la_imagen_base" }`.
     - **Validation**: El `comfly_id` provisto debe existir en el diccionario `images` con estado `generated`. `instruction` es obligatorio.
     - **Proceso Interno**:
-        1. Utiliza la imagen correspondiente al `comfly_id` pasado en el request como base (img2img).
-        2. Llama al Agente Ixtli para refinar el prompt visual.
-        3. Encola en ComfyUI.
-        4. Actualiza `metadata.json` agregando al diccionario `images` el nuevo resultado devuelto por ComfyUI.
+        1. Recupera la imagen física asociada al `comfly_id` para ser utilizada como base (img2img).
+        2. Llama al Agente Ixtli utilizando un modelo de visión (VLM) para analizar la imagen previa y la instrucción del usuario, produciendo un refinamiento quirúrgico del prompt.
+        3. Encola la tarea en ComfyUI inyectando el prompt refinado y la imagen base.
+        4. Actualiza `metadata.json` agregando al diccionario `images` el nuevo UUID de ComfyUI con estado inicial `queue`.
     - **Contrato de Respuesta (Output)**:
         - **Éxito (202)**: `{images:[]}`.
         - **Falla (400)**: `comfly_id` no válido o sin generación previa.
@@ -599,7 +599,7 @@ Tlacuilo utiliza un sistema de **Prompts Composicionales**, donde la instrucció
 | **Strategy** | `prompts/strategies/english_correction.md` | Corrección estructural de borradores en inglés fallidos. |
 | **Strategy** | `prompts/strategies/shot_suggestion.md` | Análisis de documento MD y generación de Shot List con JSON estructurado. |
 | **Strategy** | `prompts/strategies/visual_prompt_generation.md` | Vision LLM: transforma foto de hardware en `visual_prompt` para ComfyUI. |
-| **Strategy** | `prompts/strategies/visual_prompt_correction.md` | Refinamiento quirúrgico de `visual_prompt` basado en instrucción del usuario. |
+| **Strategy** | `prompts/strategies/vlm_visual_refinement.md` | Refinamiento visual multimodal (VLM): analiza imagen previa e instrucción para correcciones quirúrgicas. |
 
 ### B. Mapeo de Servicios vs Prompts
 El Backend orquesta la inyección según el endpoint:
@@ -612,7 +612,7 @@ El Backend orquesta la inyección según el endpoint:
 | `/translate/draft` | `tlacuilo_global.md` | `english_translation.md` / `english_correction.md` | System + source_content. En retry: añade `## VALIDATION ERROR:` + detalle. |
 | `/studio/suggest` | `tlacuilo_ixtli.md` | `shot_suggestion.md` | System + Strategy + contenido del `{slug}.md`. Salida: JSON Array. |
 | `/studio/shots/{id}/upload` | `tlacuilo_ixtli.md` | `visual_prompt_generation.md` | System + Strategy + imagen `original.png` + `description` + `focus` + `atmosphere`. Salida: string del `visual_prompt`. |
-| `/studio/shots/{id}/correct` | `tlacuilo_ixtli.md` | `visual_prompt_correction.md` | System + Strategy + `previous_visual_prompt` + `instruction`. Salida: string refinado del `visual_prompt`. |
+| `/studio/shots/{id}/correct` | `vlm_visual_refinement.md` | Strategy + Imagen (anterior) + Instrucción (usuario). Salida: string refinado del `visual_prompt`. |
 
 ### C. Reglas de Construcción de Prompts
 Para mantener la calidad de la asistencia, todo prompt en Tlacuilo debe seguir estos axiomas:
