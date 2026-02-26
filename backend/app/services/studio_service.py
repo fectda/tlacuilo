@@ -5,6 +5,7 @@ import shutil
 import random
 import base64
 from pathlib import Path
+from datetime import datetime
 from typing import List, Dict, Any, Optional
 from fastapi.responses import FileResponse
 
@@ -271,7 +272,7 @@ class StudioService:
 
     async def correct_shot(self, collection: str, slug: str, shot_id: str,
                            instruction: str, comfly_id: str) -> Dict[str, Any]:
-        """Refine visual_prompt and re-enqueue ComfyUI using a specific generated image."""
+        """Refine visual_prompt and re-enqueue ComfyUI using a specific generated image (Multimodal/VLM)."""
         meta = self._load_shot_metadata(collection, slug, shot_id)
         if meta is None:
             raise FileNotFoundError(f"Shot '{shot_id}' not found.")
@@ -282,21 +283,22 @@ class StudioService:
             raise ValueError(f"Image variant '{comfly_id}' not found or not in 'generated' state.")
 
         shot_dir = self._shot_dir(collection, slug, shot_id)
-        refined_prompt = await self._refine_visual_prompt(instruction)
-
         base_image_path = shot_dir / f"{comfly_id}.png"
         if not base_image_path.exists():
             raise FileNotFoundError(f"Physical file for variant '{comfly_id}' missing.")
 
+        # Multimodal Refinement: Analyze previous image + instruction
+        refined_prompt = await self._refine_visual_prompt_multimodal(base_image_path, instruction)
+
         server_filename = await self.comfy.upload_image(base_image_path)
         seed = random.randint(0, 2**32 - 1)
-        node6_prompt = self._assemble_node6_prompt(refined_prompt, meta.get("atmosphere", "turquesa"), meta.get("type", "macro"))
-        
+
         workflow = self.comfy.build_correct_workflow(
-            visual_prompt=node6_prompt,
+            visual_prompt=refined_prompt,
             server_filename=server_filename,
             seed=seed
         )
+        
         prompt_id = await self.comfy.enqueue_workflow(workflow)
 
         meta["images"].append({
@@ -414,16 +416,45 @@ class StudioService:
             {"role": "system", "content": strategy},
             {"role": "user", "content": user_content, "images": [base64_image]}
         ]
-        return (await self.llm.chat(messages, model_override=settings.VISION_MODEL)).strip()
+        response = (await self.llm.chat(messages, model_override=settings.VISION_MODEL)).strip()
 
-    async def _refine_visual_prompt(self, instruction: str) -> str:
-        strategy = self.prompts.get_visual_prompt_correction_strategy()
+        if settings.DEBUG_LOGS_ENABLED:
+            try:
+                shot_dir = image_path.parent
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                debug_path = shot_dir / f"{timestamp}_vlm_generate_debug.txt"
+                debug_content = f"--- STRATEGY ---\n{strategy}\n\n--- USER ---\n{user_content}\n\n--- RESPONSE ---\n{response}\n"
+                debug_path.write_text(debug_content, encoding='utf-8')
+            except Exception as e:
+                logger.error(f"Failed to write debug log: {e}")
+
+        return response
+
+    async def _refine_visual_prompt_multimodal(self, image_path: Path, instruction: str) -> str:
+        strategy = self.prompts.get_vlm_visual_refinement_strategy()
         user_content = f"CORRECTION INSTRUCTION:\n{instruction}"
+        
+        with open(image_path, "rb") as f:
+            base64_image = base64.b64encode(f.read()).decode('utf-8')
+            
         messages = [
             {"role": "system", "content": strategy},
-            {"role": "user", "content": user_content}
+            {"role": "user", "content": user_content, "images": [base64_image]}
         ]
-        return (await self.llm.chat(messages)).strip()
+        response = (await self.llm.chat(messages, model_override=settings.VISION_MODEL)).strip()
+
+        if settings.DEBUG_LOGS_ENABLED:
+            try:
+                from datetime import datetime
+                shot_dir = image_path.parent
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                debug_path = shot_dir / f"{timestamp}_vlm_refine_debug.txt"
+                debug_content = f"--- STRATEGY ---\n{strategy}\n\n--- USER ---\n{user_content}\n\n--- RESPONSE ---\n{response}\n"
+                debug_path.write_text(debug_content, encoding='utf-8')
+            except Exception as e:
+                logger.error(f"Failed to write debug log: {e}")
+
+        return response
 
     def _extract_json_array(self, text: str) -> Optional[List[Dict]]:
         try:

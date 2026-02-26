@@ -54,6 +54,10 @@ class PromptService:
         path = self.prompts_path / "strategies" / "visual_prompt_correction.md"
         return self.load_prompt(path)
 
+    def get_vlm_visual_refinement_strategy(self) -> str:
+        path = self.prompts_path / "strategies" / "vlm_visual_refinement.md"
+        return self.load_prompt(path)
+
     def get_translator_prompt(self) -> str:
         path = self.prompts_path / "system" / "translator.md"
         return self.load_prompt(path)
