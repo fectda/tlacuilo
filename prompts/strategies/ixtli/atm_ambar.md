@@ -1,0 +1,1 @@
+Complex multi-point lighting with ALL sources off-camera: (1) Warm amber (#FFBF00) overhead soft-box key light at 45°, (2) Precise golden rim-light defining the upper silhouette, (3) Subtle amber fill light from the camera's axis to reveal fine organic and metal layer textures.

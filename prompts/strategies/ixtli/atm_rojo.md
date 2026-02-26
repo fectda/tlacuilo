@@ -1,0 +1,1 @@
+Complex multi-point lighting with ALL sources off-camera: (1) Deep crimson (#D4442F) hard key-light from the left at 15° elevation casting stark red glows on edges, (2) Precise red rim-light on the left silhouette, (3) Subtle crimson fill light from the camera's axis to reveal textures.
