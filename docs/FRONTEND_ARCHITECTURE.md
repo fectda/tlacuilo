@@ -89,11 +89,11 @@ Donde se crean las imágenes.
 -   **Layout**:
     -   `ReferenceArea` (Izquierda): Upload de imagen "dirty".
     -   `PromptArea` (Centro): Configuración de workflow (Estilo, Trigger word).
-    -   `ResultArea` (Derecha): Imagen generada.
+    -   `ResultArea` (Derecha): Grid o Lista de imágenes generadas (extraídas del diccionario `images` del metadata). Permite seleccionar una imagen específica para interactuar con ella.
 -   **Acciones**:
-    -   `[primary] Generate`: Enviar a ComfyUI.
-    -   `[secondary] Stylize (Huitzilopochtli)`: Cargar preset de estilo.
-    -   `[success] Approve & Save`: Mover a `public/`.
+    -   `[primary] Generate`: Enviar a ComfyUI (Endpoint `/upload`).
+    -   `[secondary] Correct`: Enviar una instrucción de corrección basada en la imagen seleccionada en el `ResultArea` (Endpoint `/correct` enviando el `comfly_id`).
+    -   `[success] Approve & Save`: Seleccionar una imagen del `ResultArea` y aprobarla para moverla a `public/`.
 
 ## 5. Referencias Estéticas (Fuente de Verdad)
 El sistema **DEBE** leer los estilos y tokens visuales de los archivos ubicados en el portafolio real:

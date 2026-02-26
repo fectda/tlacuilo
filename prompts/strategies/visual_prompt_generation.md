@@ -1,34 +1,30 @@
-# Strategy: Visual Prompt Generation (Ixtli – From Image)
+# Strategy: Subject Description Generation (Ixtli – Vision Analysis)
 
 ## Objective
-Analyze a real hardware photograph and generate a precise `visual_prompt` that describes the **subject and technique** for ComfyUI. The aesthetic (background color, lighting style, aspect ratio) is hard-coded in the ComfyUI workflow and must NOT be described in the output.
+Analyze a real hardware photograph alongside user-provided metadata to generate a highly accurate, forensic-grade physical description of the object. This description will be injected as the `[SUBJECT_DESCRIPTION]` component in a larger image generation pipeline.
 
 ## Context You Will Receive
 The backend will provide:
-- **`description`**: The shot's intended technical description (from `metadata.json`).
-- **`focus`**: The single physical protagonist (e.g., "PCM5102A DAC chip solder joints").
-- **`atmosphere`**: The lighting atmosphere: `rojo` | `turquesa` | `ambar`.
-- **Image**: The actual `original.png` photograph for visual analysis.
+- **`title`**: The name of the shot.
+- **`description`**: The intended technical description of the shot.
+- **`focus`**: The single physical protagonist of the photo.
+- **Image**: The actual photograph for visual reference.
 
 ## Your Analysis Protocol
-1. **Identify the Subject**: Confirm that the photo contains the component described in `focus`. If it does not match, flag the discrepancy.
-2. **Describe the Object (Not the Aesthetic)**: Write a technical description of the physical object — its geometry, material, size relative to surrounding components, visible labels, pins, traces.
-3. **Describe the Technique**: Based on `atmosphere`, specify the lighting angle and intensity that best serves the `focus`. Do NOT describe the background or artistic style — those are fixed in the workflow.
+1. **Identify the Subject**: Locate the component described in `focus` within the provided photograph.
+2. **Forensic Description**: Write exactly 1 or 2 sentences describing the physical object. 
+   - Detail the observable materials (e.g., green PCB, yellow plastic housing, brushed aluminum, black PETG).
+   - Describe the geometry, shapes, and structural relationship of the parts.
+   - Mention any clearly readable labels, markings, traces, or pins on the hardware.
 
-## Atmosphere → Technique Mapping
-| Atmosphere | Technique |
-|---|---|
-| `rojo` | Hard rim light from the left at 15° elevation, deep crimson cast on metal edges and seams, specular hot spot on the dominant surface, hard shadow falls right. |
-| `turquesa` | Cold rim light upper-right at 30°, teal glaze on curved surfaces and component labels, soft catchlights on reflective pads, gradient falloff to black. |
-| `ambar` | Warm overhead fill at 45°, amber diffusion on organic textures and oxidized metal, gentle specular bloom, minimal hard shadows. |
+## Guardrails (STRICTLY ENFORCED)
+- **NO Aesthetics or Lighting**: NEVER describe shadows, lighting, glow, camera angles, or the background. Your output must strictly be about the physical object itself (we handle aesthetics in the backend).
+- **NO Extrapolation**: NEVER invent or describe components that are not visibly present in the photograph, even if they normally belong to the object.
+- **Mandatory Prefix**: You MUST start your response with the exact text provided in the `FOCUS` variable.
 
 ## Output Format
-Return ONLY the `visual_prompt` string. One paragraph. No JSON, no markdown, no explanations.
+Return ONLY the description as a single plain text string, starting explicitly with the `FOCUS` text. No JSON, no markdown, no explanations.
 
-**Example**:
-`Close-up photographic study of a PCM5102A I2S DAC chip surface-mounted on a green PCB. Silver solder joints on QFN-28 package. Micro gold traces visible along the board edge. Subject fills 60% of the frame. Cold rim lighting from upper right, catchlights on chip surface.`
-
-## Guardrails
-- **Never describe the background** (it is always `#050505`).
-- **Never suggest removing or replacing components**.
-- **Never describe a component that is not physically visible in the photograph**.
+**Example Input Focus**: "PCM5102A DAC chip solder joints"
+**Example Output**:
+`PCM5102A DAC chip solder joints on a green PCB. Silver solder joints on a QFN-28 package with micro gold traces visible along the board edge.`

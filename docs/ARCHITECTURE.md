@@ -333,6 +333,29 @@ Gestión de activos visuales mediante un flujo de **Borrador y Corrección** (si
 #### 1. Gestión de Evidencias (CRUD de Shots)
 Este servicio permite gestionar la "Lista de Tiro" (Shot List) del proyecto. Los metadatos de cada toma se guardan en `projects/{collection}/{slug}/shots/{shot_id}/metadata.json`.
 
+**Estructura Estricta de `metadata.json`:**
+El archivo debe contener única y exclusivamente la siguiente estructura. No se permiten campos adicionales en la raíz.
+```json
+{
+  "shot_id": "...",
+  "title": "...",
+  "description": "...",
+  "type": "...",
+  "focus": "...",
+  "atmosphere": "...",
+  "images": {
+    "uuid_comfly_1": {
+        "status": "queue | generated | error",
+        "path": "nombre_archivo_1.png"
+    },
+    "uuid_comfly_2": {
+        "status": "generated",
+        "path": "nombre_archivo_2.png"
+    }
+  }
+}
+```
+
 - `POST /api/{collection}/{slug}/studio/suggest`: **Sugerir y Persistir Tomas**
     - **Responsabilidad**: Analizar el archivo `{slug}.md` y crear físicamente las sugerencias de tomas en el sistema de archivos.
     - **Input**: N/A.
@@ -368,7 +391,7 @@ Este servicio permite gestionar la "Lista de Tiro" (Shot List) del proyecto. Los
         2. Crea carpeta `projects/{collection}/{slug}/shots/{shot_id}/`.
         3. Inicializa `metadata.json` con `status: "pending_upload"` y todos los campos de contexto.
     - **Contrato de Respuesta (Output)**:
-        - **Éxito (201)**: `{ "shot_id": "...", "status": "created" }`.
+        - **Éxito (201)**: `{}`.
         - **Falla (400)**: Título faltante, atmósfera inválida, o `shot_id` duplicado.
 
 - `GET /api/{collection}/{slug}/studio/shots/{shot_id}`: **Obtener Detalle de Toma**
@@ -405,37 +428,60 @@ El flujo comprende **dos acciones**. Upload dispara todo el ciclo; Correct itera
     - **Validation**: Tipo de archivo imagen. El shot debe existir con `focus` y `atmosphere` definidos.
     - **Proceso Interno (Pipeline automático)**:
         1. Guarda la imagen como `shots/{shot_id}/original.png`.
-        2. Llama al Agente Ixtli (Vision LLM) pasando: `original.png` + `description` + **`focus`** + **`atmosphere`** del `metadata.json` para generar el `visual_prompt` sin ambigüedad.
-        3. Inyecta `visual_prompt` y `original.png` en el workflow `ixtli_generate.json` y encola la tarea.
-        4. Actualiza `metadata.json` → `status: "queued"`, guarda el `visual_prompt` generado y el `prompt_id` de ComfyUI.
+        2. Llama al Agente Ixtli (Vision LLM) para generar el `visual_prompt`.
+        3. Encola la tarea en ComfyUI.
+        4. Actualiza `metadata.json` agregando al diccionario `images` el primer resultado.
     - **Contrato de Respuesta (Output)**:
-        - **Éxito (202)**: `{ "prompt_id": "uuid-comfy", "status": "queued", "visual_prompt": "..." }`.
+        - **Éxito (202)**: `{}`.
         - **Falla (400)**: Archivo inválido o shot sin `focus`/`atmosphere` definidos.
         - **Falla (404)**: Shot no encontrado.
     - **Nota**: Re-subir una imagen reinicia el ciclo desde cero (nueva `original.png`, nuevo prompt, nueva generación).
 
-- `POST /api/{collection}/{slug}/studio/shots/{shot_id}/correct`: **Ciclo de Corrección**
-    - **Responsabilidad**: Aplicar una instrucción de corrección sobre la última imagen generada y enviar a ComfyUI de nuevo.
-    - **Input**: `{ "instruction": "El fondo más oscuro, menos blur en el objeto" }`.
-    - **Validation**: Debe existir una generación previa (`status: "generated"`). `instruction` es obligatorio.
-    - **Proceso Interno**:
-        1. Recupera el `visual_prompt` actual del `metadata.json`.
-        2. Llama al Agente Ixtli con el `visual_prompt` anterior + `instruction` para generar un `visual_prompt` refinado.
-        3. Encola en ComfyUI usando la última imagen generada como base (`img2img`).
-        4. Actualiza `metadata.json` → `status: "queued"`, sobreescribe el `visual_prompt`.
+- `GET /api/{collection}/{slug}/studio/shots/{shot_id}/status`: **Polling de Estado ComfyUI**
+    - **Responsabilidad**: Revisar el estado en ComfyUI de todas las imágenes en el diccionario `images` que no estén terminadas (ej. con status `queue`). Para las que ya terminaron, descargar el archivo, actualizar su estado a `generated` en el diccionario `images` y guardar el `metadata.json`.
+    - **Input**: N/A.
     - **Contrato de Respuesta (Output)**:
-        - **Éxito (202)**: `{ "prompt_id": "uuid-comfy", "status": "queued", "visual_prompt": "..." }`.
-        - **Falla (400)**: No hay generación previa sobre la cual corregir.
+        - **Éxito (200)**: Retorna la lista de imágenes.
+        - **Falla (404)**: Shot no encontrado.
+
+- `POST /api/{collection}/{slug}/studio/shots/{shot_id}/correct`: **Ciclo de Corrección**
+    - **Responsabilidad**: Aplicar una instrucción de corrección sobre una imagen específica generada previamente y enviar a ComfyUI de nuevo.
+    - **Input**: `{ "instruction": "El fondo más oscuro, menos blur en el objeto", "comfly_id": "uuid_de_la_imagen_base" }`.
+    - **Validation**: El `comfly_id` provisto debe existir en el diccionario `images` con estado `generated`. `instruction` es obligatorio.
+    - **Proceso Interno**:
+        1. Utiliza la imagen correspondiente al `comfly_id` pasado en el request como base (img2img).
+        2. Llama al Agente Ixtli para refinar el prompt visual.
+        3. Encola en ComfyUI.
+        4. Actualiza `metadata.json` agregando al diccionario `images` el nuevo resultado devuelto por ComfyUI.
+    - **Contrato de Respuesta (Output)**:
+        - **Éxito (202)**: `{}`.
+        - **Falla (400)**: `comfly_id` no válido o sin generación previa.
 
 - `POST /api/{collection}/{slug}/studio/shots/{shot_id}/approve`: **Aprobar Imagen**
-    - **Responsabilidad**: Marcar una imagen generada como válida y definitiva para el shot. No mueve ni copia archivos.
-    - **Input**: `{ "filename": "nombre_del_archivo_generado.png" }` (nombre del archivo dentro de `shots/{shot_id}/`).
-    - **Validation**: El shot debe estar en `status: "generated"`.
-    - **Proceso Interno**: Actualiza `metadata.json` → `status: "approved"`, registra el `approved_filename`.
+    - **Responsabilidad**: Marcar una imagen específica (vía `comfly_id`) como válida y definitiva para el shot.
+    - **Input**: `{ "comfly_id": "uuid_de_la_imagen_seleccionada" }`.
+    - **Validation**: El `comfly_id` debe existir en el diccionario `images` con estado `generated`.
+    - **Proceso Interno**:
+        1. Escanea el diccionario `images`. Si existe alguna imagen previa con estado `approved`, cambia su estado de vuelta a `generated`.
+        2. Establece el estado de la imagen seleccionada (`comfly_id`) a `approved`.
+        3. Guarda los cambios en `metadata.json`.
     - **Contrato de Respuesta (Output)**:
-        - **Éxito (200)**: `{ "status": "approved", "approved_file": "..." }`.
-        - **Falla (400)**: Shot no tiene imagen generada aún.
+        - **Éxito (200)**: `{ "status": "approved", "comfly_id": "..." }`.
+        - **Falla (400)**: `comfly_id` no válido o no disponible para aprobación.
         - **Falla (404)**: Shot no encontrado.
+
+- `DELETE /api/{collection}/{slug}/studio/shots/{shot_id}/image/{comfly_id}`: **Eliminar Variante de Imagen**
+    - **Responsabilidad**: Eliminar permanentemente una imagen específica del shot, tanto del diccionario `metadata.json` como del sistema de archivos.
+    - **Input**: Parámetros de ruta.
+    - **Validation**: El `comfly_id` debe existir en el diccionario `images`.
+    - **Proceso Interno**:
+        1. Identifica el `path` del archivo asociado al `comfly_id` en el `metadata.json`.
+        2. Elimina el archivo físico del disco si existe.
+        3. Elimina la entrada del diccionario `images`.
+        4. Guarda los cambios en `metadata.json`.
+    - **Contrato de Respuesta (Output)**:
+        - **Éxito (204)**: Cuerpo vacío.
+        - **Falla (404)**: Imagen o Shot no encontrado.
 
 #### 3. Especificaciones para el Experto en ComfyUI (Ixtli)
 
