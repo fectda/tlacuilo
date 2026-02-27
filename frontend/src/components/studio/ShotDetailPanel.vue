@@ -400,6 +400,8 @@ const handleDeleteVariant = async (comflyId) => {
                                             <p class="text-[9px] text-neutral-300 font-black uppercase tracking-[0.2em]">Refinement Instructions</p>
                                             <textarea
                                                 v-model="correctionText" rows="2"
+                                                autocomplete="off"
+                                                spellcheck="false"
                                                 placeholder="Describe changes (e.g. 'more contrast', 'focus on chip')..."
                                                 class="flex-1 w-full bg-[#111] border-2 border-white/20 p-2.5 text-[11px] text-white focus:outline-none focus:border-white/60 resize-none placeholder-neutral-600 shadow-inner"
                                             ></textarea>
