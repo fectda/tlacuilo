@@ -35,10 +35,14 @@ class StudioGenerationService:
         original_path = shot_dir / "original.png"
         with open(original_path, "wb") as f: f.write(image_bytes)
 
+        # Execute VLM Task with Centralized Logging
+        ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+        log_path = shot_dir / f"{ts}_vlm_generate_history.json"
+        
         user_content = f"DESCRIPTION: {meta.get('description')}\nFOCUS: {meta['focus']}\nGenerate hardware visual_prompt."
         visual_prompt = await self._execute_vlm_task(
             original_path, self.prompts.get_visual_prompt_generation_strategy(),
-            user_content, "vlm_generate"
+            user_content, log_path
         )
 
         server_fn = await self.comfy.upload_image(original_path)
@@ -56,10 +60,14 @@ class StudioGenerationService:
         base_path = shot_dir / f"{comfly_id}.png"
         self.validator.ensure_file(base_path, comfly_id)
 
+        # Execute VLM Task with Centralized Logging
+        ts = datetime.now().strftime('%Y%m%d_%H%M%S')
+        log_path = shot_dir / f"{ts}_vlm_refine_history.json"
+
         user_content = f"CORRECTION INSTRUCTION:\n{instruction}"
         refined_prompt = await self._execute_vlm_task(
             base_path, self.prompts.get_vlm_visual_refinement_strategy(),
-            user_content, "vlm_refine"
+            user_content, log_path
         )
 
         server_fn = await self.comfy.upload_image(base_path)
@@ -102,13 +110,11 @@ class StudioGenerationService:
         qual_p = self.prompts.get_ixtli_quality()
         return f"{base} {type_p} {visual_prompt} {atm_p} {qual_p}"
 
-    async def _execute_vlm_task(self, image_path: Path, strategy: str, user_content: str, debug_suffix: str) -> str:
+    async def _execute_vlm_task(self, image_path: Path, strategy: str, user_content: str, log_path: Path) -> str:
         with open(image_path, "rb") as f: b64 = base64.b64encode(f.read()).decode('utf-8')
-        res = (await self.llm.chat([{"role": "system", "content": strategy}, {"role": "user", "content": user_content, "images": [b64]}], model_override=settings.VISION_MODEL)).strip()
-        if settings.DEBUG_LOGS_ENABLED:
-            try:
-                ts = datetime.now().strftime('%Y%m%d_%H%M%S')
-                log_path = image_path.parent / f"{ts}_{debug_suffix}_debug.txt"
-                log_path.write_text(f"--- STRATEGY ---\n{strategy}\n\n--- USER ---\n{user_content}\n\n--- RESPONSE ---\n{res}\n")
-            except: pass
-        return res
+        # We delegate the logging to the OllamaClient
+        return await self.llm.chat(
+            [{"role": "system", "content": strategy}, {"role": "user", "content": user_content, "images": [b64]}], 
+            model_override=settings.VISION_MODEL,
+            debug_path=log_path
+        )

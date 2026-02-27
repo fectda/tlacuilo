@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime
+from pathlib import Path
 from typing import Optional
 from app.clients.llm.base import LLMClient
 from app.repositories.project_repository import ProjectRepository
@@ -42,16 +43,19 @@ class ChatDraftService:
         req_msg = {"role": "user", "content": context, "system_only": True, "timestamp": datetime.now().isoformat()}
         draft_history = history + [req_msg]
         
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        debug_dir = p_dir / "drafts-tests"
+
         for attempt in range(3):
-            raw = await self.llm.chat(draft_history)
+            # Centralized JSON Logging (Point 1)
+            log_name = f"{ts}_at{attempt+1}_history.json"
+            raw = await self.llm.chat(draft_history, debug_path=debug_dir / log_name)
+            
             candidate = self.cont_validator.sanitize_draft(raw)
             err = self.cont_validator.validate_schema(candidate, collection)
             
-            if settings.DEBUG_LOGS_ENABLED:
-                d_dir = p_dir / "drafts-tests"
-                d_dir.mkdir(parents=True, exist_ok=True)
-                ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-                self.repo.write_text(d_dir / f"{ts}_{'ok' if not err else 'fail'}_raw.md", raw)
+            # Markdown Copy (Point 2: Encapsulated helper)
+            self._save_debug_md(debug_dir / f"{ts}_at{attempt+1}_{'ok' if not err else 'fail'}.md", raw)
 
             if not err:
                 history.append(req_msg)
@@ -77,11 +81,27 @@ class ChatDraftService:
 
         msgs = [{"role": "system", "content": sys_msg}, {"role": "user", "content": user_msg}]
         
-        for _ in range(3):
-            raw = await self.llm.chat(msgs)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        debug_dir = p_dir / "drafts-tests"
+
+        for attempt in range(3):
+            log_name = f"{ts}_en_at{attempt+1}_history.json"
+            raw = await self.llm.chat(msgs, debug_path=debug_dir / log_name)
             msgs.append({"role": "assistant", "content": raw})
+            
             candidate = self.cont_validator.sanitize_draft(raw)
             err = self.cont_validator.validate_schema(candidate, collection)
+            
+            # Markdown Copy (Point 2: Encapsulated helper)
+            self._save_debug_md(debug_dir / f"{ts}_at{attempt+1}_{'en_ok' if not err else 'en_fail'}.md", raw)
+
             if not err: return candidate
+            
             msgs.append({"role": "user", "content": f"{self.prompts.get_correction_strategy()}\n\nERROR: {err}"})
+            
         return candidate
+
+    def _save_debug_md(self, path: Path, content: str):
+        """Helper to centralize MD logging logic (Point 2 & 4)"""
+        if settings.DEBUG_LOGS_ENABLED:
+            self.repo.write_text(path, content)
