@@ -76,6 +76,24 @@ class ProjectRepository:
         state["last_update"] = datetime.now().isoformat()
         self.write_json(path, state)
 
+    def initialize_local_memory(self, collection: str, slug: str, doc_status: str = "revisión", is_active: bool = False):
+        """Creates the minimal local structure for a project."""
+        project_dir = self.get_project_dir(collection, slug)
+        project_dir.mkdir(parents=True, exist_ok=True)
+        
+        # chat_history.json (Empty)
+        if not (project_dir / "chat_history.json").exists():
+            self.save_chat_history(project_dir, [])
+            
+        # doc_state.json
+        state_path = project_dir / "doc_state.json"
+        if not state_path.exists():
+            self.save_doc_state(project_dir, {
+                "doc_status": doc_status,
+                "is_working_copy_active": is_active
+            })
+        return project_dir
+
     def list_collection_files(self, collection: str) -> List[Dict[str, Any]]:
         """Scans both flat files and folder-based projects in a collection."""
         found = []

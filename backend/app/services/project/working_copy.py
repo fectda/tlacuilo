@@ -18,14 +18,12 @@ class ProjectWorkingCopyService:
         
         if not slug:
             slug = re.sub(r'[^a-z0-9]+', '-', name.lower()).strip('-')
-            
+
         project_dir = self.repo.get_project_dir(collection, slug)
         portfolio_path = self.repo.resolve_portfolio_path(collection, slug)
         self.proj_validator.ensure_project_not_exists(project_dir.exists(), portfolio_path is not None, slug)
 
-        project_dir.mkdir(parents=True, exist_ok=True)
-        self.repo.save_chat_history(project_dir, [])
-        self.repo.save_doc_state(project_dir, {"doc_status": "borrador", "is_working_copy_active": True})
+        self.repo.initialize_local_memory(collection, slug, doc_status="borrador", is_active=True)
 
         template_path = self.repo.portfolio_path / "src" / "content" / collection / f"_template.md"
         local_md = project_dir / f"{slug}.md"
