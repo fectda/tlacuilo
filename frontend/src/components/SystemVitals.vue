@@ -20,18 +20,18 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <div class="glass-card border-l-2 border-l-accent/50 p-6 bg-black/40">
-        <div class="flex items-center gap-2 mb-6">
-            <BaseIcon name="vitals" class="text-accent" />
-            <h2 class="text-lg font-bold text-white tracking-tight">{{ UI_STRINGS.system.title }}</h2>
+    <div class="w-full flex items-center justify-between border-t border-accent/20 px-6 py-2 bg-black/40">
+        <div class="flex items-center gap-2">
+            <BaseIcon name="vitals" class="text-accent w-4 h-4" />
+            <h2 class="text-xs font-bold text-neutral-400 tracking-widest uppercase">{{ UI_STRINGS.system.title }}</h2>
         </div>
 
-        <div class="space-y-3">
+        <div class="flex items-center gap-4">
             <div v-for="(service, id) in vitals" :key="id" 
-                 class="flex items-center justify-between p-3 bg-white/5 border border-white/5 rounded-lg group transition-colors hover:bg-white/10">
-                <span class="text-sm font-medium text-neutral-400 group-hover:text-neutral-200 transition-colors">{{ service.label }}</span>
+                 class="flex items-center gap-2 px-2 py-1 rounded bg-transparent group transition-colors hover:bg-white/5">
+                <span class="text-xs font-medium text-neutral-500 group-hover:text-neutral-300 transition-colors">{{ service.label }}</span>
                 
-                <div class="flex items-center gap-3">
+                <div class="flex items-center gap-2">
                     <BaseIcon v-if="service.status === 'POLLING'" name="polling" class="w-3 h-3 text-neutral-600 animate-spin" />
                     <StatusBadge 
                         v-if="service && service.status"

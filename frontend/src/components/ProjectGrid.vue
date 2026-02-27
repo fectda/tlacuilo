@@ -94,9 +94,7 @@ const handleResurrectProject = async (collection, slug) => {
 }
 
 onMounted(() => {
-    if (Object.values(groupedProjects.value).every(arr => arr.length === 0)) {
-        fetchProjects()
-    }
+    fetchProjects()
 })
 </script>
 

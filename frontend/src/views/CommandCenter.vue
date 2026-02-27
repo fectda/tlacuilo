@@ -1,8 +1,6 @@
 <script setup>
 import { useRouter } from 'vue-router'
 import ProjectGrid from '../components/ProjectGrid.vue'
-import SystemVitals from '../components/SystemVitals.vue'
-import BaseIcon from '../components/BaseIcon.vue'
 import { UI_STRINGS } from '../constants/uiStrings'
 
 const router = useRouter()
@@ -39,21 +37,7 @@ const router = useRouter()
         <!-- Main Grid -->
         <ProjectGrid />
         
-        <!-- System & Activity Footer -->
-        <section class="grid grid-cols-1 md:grid-cols-2 gap-8 mt-4 pb-12">
-          <SystemVitals />
 
-          <div class="glass-card p-6 border-l-4 border-l-primary shadow-glow-primary/10">
-            <h3 class="text-xl font-bold mb-6 flex items-center gap-2">
-              <BaseIcon name="history" class="text-primary" />
-              {{ UI_STRINGS.common.telemetry }}
-            </h3>
-            <div class="flex flex-col items-center justify-center py-6 text-neutral-600 italic">
-              <BaseIcon name="archive" class="w-12 h-12 mb-2 opacity-20" />
-              <span class="text-sm">{{ UI_STRINGS.common.no_activity }}</span>
-            </div>
-          </div>
-        </section>
       </div>
     </main>
   </div>
