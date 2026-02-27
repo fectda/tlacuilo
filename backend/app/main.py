@@ -3,7 +3,9 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.api.endpoints import projects, system, content, studio
+from app.api.endpoints import projects, system, studio, chat, working_copy, publish, studio_project
+from app.api.deps import validate_collection, validate_project_exists, validate_shot_id, validate_shot_exists
+from fastapi import Depends
 
 # Configure Logger
 logging.basicConfig(level=logging.INFO)
@@ -53,8 +55,16 @@ app.add_middleware(
 # Include routers
 app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
 app.include_router(system.router, prefix="/api/system", tags=["system"])
-app.include_router(content.router, prefix="/api", tags=["content"])
-app.include_router(studio.router, prefix="/api", tags=["studio"])
+
+# Project Management Routing (Dependency Injected)
+proj_deps = [Depends(validate_collection), Depends(validate_project_exists)]
+app.include_router(chat.router, prefix="/api", tags=["chat"], dependencies=proj_deps)
+app.include_router(working_copy.router, prefix="/api", tags=["working_copy"], dependencies=proj_deps)
+app.include_router(publish.router, prefix="/api", tags=["publish"], dependencies=proj_deps)
+app.include_router(studio_project.router, prefix="/api", tags=["studio_project"], dependencies=proj_deps)
+
+# Asset Management Routing (Shot specific logic)
+app.include_router(studio.router, prefix="/api", tags=["studio_shot"], dependencies=proj_deps + [Depends(validate_shot_id), Depends(validate_shot_exists)])
 
 @app.get("/")
 async def root():

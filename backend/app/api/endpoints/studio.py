@@ -4,18 +4,12 @@ from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 
 from app.api.deps import get_studio_shot_manager, get_studio_generation, get_studio_assets
-from app.services.studio.shot_manager import StudioShotManager
 from app.services.studio.generation import StudioGenerationService
 from app.services.studio.assets import StudioAssetService
 
 router = APIRouter()
 
-class CreateShotRequest(BaseModel):
-    title: str
-    description: str
-    type: Optional[str] = "macro"
-    focus: str
-    atmosphere: str
+
 
 class UpdateShotRequest(BaseModel):
     title: Optional[str] = None
@@ -32,18 +26,6 @@ class ApproveShotRequest(BaseModel):
     comfly_id: str
 
 # 1. Shot Management
-
-@router.post("/{collection}/{slug}/studio/suggest")
-async def suggest_shots(collection: str, slug: str, sm: StudioShotManager = Depends(get_studio_shot_manager)):
-    return await sm.suggest_shots(collection, slug)
-
-@router.get("/{collection}/{slug}/studio/shots")
-def list_shots(collection: str, slug: str, sm: StudioShotManager = Depends(get_studio_shot_manager)):
-    return sm.list_shots(collection, slug)
-
-@router.post("/{collection}/{slug}/studio/shots", status_code=201)
-def create_shot(collection: str, slug: str, body: CreateShotRequest, sm: StudioShotManager = Depends(get_studio_shot_manager)):
-    return sm.create_shot(collection, slug, **body.model_dump())
 
 @router.get("/{collection}/{slug}/studio/shots/{shot_id}")
 def get_shot(collection: str, slug: str, shot_id: str, sm: StudioShotManager = Depends(get_studio_shot_manager)):

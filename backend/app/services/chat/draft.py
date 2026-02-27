@@ -25,9 +25,7 @@ class ChatDraftService:
         self.prompts = prompts
 
     async def generate_draft(self, collection: str, slug: str) -> str:
-        self.proj_validator.ensure_collection(collection)
         p_dir = self.repo.get_project_dir(collection, slug)
-        self.proj_validator.ensure_project_exists(p_dir, slug)
         
         history = self.repo.get_chat_history(p_dir)
         wc = self.working_copy_service.get_working_copy(collection, slug)
@@ -83,9 +81,7 @@ class ChatDraftService:
     async def process_translation_draft(self, collection: str, slug: str, from_scratch: bool, 
                                        instruction: Optional[str] = None, 
                                        current_draft: Optional[str] = None) -> str:
-        self.proj_validator.ensure_collection(collection)
         p_dir = self.repo.get_project_dir(collection, slug)
-        self.proj_validator.ensure_project_exists(p_dir, slug)
         
         wc = self.working_copy_service.get_working_copy(collection, slug)
         sys_msg = f"{self.prompts.get_global_system_prompt(collection, slug, wc['content'])}\n\n{self.prompts.get_translation_strategy()}"

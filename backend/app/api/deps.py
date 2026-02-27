@@ -1,3 +1,4 @@
+from fastapi import Path, HTTPException
 from app.repositories.project_repository import ProjectRepository
 from app.clients.llm.ollama import OllamaClient
 from app.clients.comfyui import ComfyUIClient
@@ -41,6 +42,32 @@ def get_prompts(): return _prompts
 def get_proj_validator(): return _proj_validator
 def get_cont_validator(): return _cont_validator
 def get_studio_validator(): return _studio_validator
+
+# Route Dependencies
+def validate_collection(collection: str = Path(...)):
+    try:
+        _proj_validator.ensure_collection(collection)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+def validate_project_exists(collection: str = Path(...), slug: str = Path(...)):
+    local_exists = _repo.get_project_dir(collection, slug).exists()
+    portfolio_exists = _repo.resolve_portfolio_path(collection, slug) is not None
+    if not local_exists and not portfolio_exists:
+        raise HTTPException(status_code=404, detail=f"Project '{slug}' does not exist in collection '{collection}'.")
+
+def validate_shot_id(shot_id: str = Path(...)):
+    try:
+        _studio_validator.ensure_shot_id(shot_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+def validate_shot_exists(collection: str = Path(...), slug: str = Path(...), shot_id: str = Path(...)):
+    try:
+        path = _repo.get_project_dir(collection, slug) / "shots" / shot_id
+        _studio_validator.ensure_shot_exists(path)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 # Project Services
 def get_project_discovery():

@@ -18,11 +18,34 @@ class ChatConversationService:
         self.cont_validator = cont_validator
         self.working_copy_service = working_copy_service
         self.prompts = prompts
+    async def get_history(self, collection: str, slug: str) -> Dict[str, Any]:
+        import json
+        from fastapi import HTTPException
+        p_dir = self.repo.get_project_dir(collection, slug)
+        
+        path = p_dir / "chat_history.json"
+        if not path.exists():
+            return {"messages": []}
+            
+        content = self.repo.read_text(path)
+        if not content:
+            return {"messages": []}
+            
+        try:
+            raw_history = json.loads(content)
+        except json.JSONDecodeError:
+            corrupt_path = path.with_suffix(".json.corrupt")
+            self.repo.copy_file(path, corrupt_path)
+            path.unlink(missing_ok=True)
+            raise HTTPException(status_code=500, detail="Corrupted chat history file. Renamed to .corrupt.")
+            
+        filtered = [m for m in raw_history if not m.get("system_only", False)]
+        filtered.sort(key=lambda x: x.get("timestamp", ""))
+        
+        return {"messages": filtered}
 
     async def initialize_new_project(self, collection: str, slug: str) -> Dict[str, Any]:
-        self.proj_validator.ensure_collection(collection)
         p_dir = self.repo.get_project_dir(collection, slug)
-        self.proj_validator.ensure_project_exists(p_dir, slug)
         
         wc = self.working_copy_service.get_working_copy(collection, slug)
         sys_p = self.prompts.get_system_prompt(collection, slug, wc["content"])
@@ -42,10 +65,8 @@ class ChatConversationService:
     async def process_message(self, collection: str, slug: str, content: str, 
                                system_only: bool = False, 
                                response_system_only: bool = False) -> Dict[str, Any]:
-        self.proj_validator.ensure_collection(collection)
         self.cont_validator.ensure_content(content)
         p_dir = self.repo.get_project_dir(collection, slug)
-        self.proj_validator.ensure_project_exists(p_dir, slug)
         
         history = self.repo.get_chat_history(p_dir)
         if not history or history[0]["role"] != "system":

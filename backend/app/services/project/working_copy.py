@@ -14,7 +14,6 @@ class ProjectWorkingCopyService:
         self.cont_validator = cont_validator
 
     def create_project(self, name: str, collection: str, slug: Optional[str] = None) -> Dict[str, Any]:
-        self.proj_validator.ensure_collection(collection)
         self.cont_validator.ensure_content(name, "Project title is required")
         
         if not slug:
@@ -43,7 +42,6 @@ class ProjectWorkingCopyService:
         return {"id": slug, "status": "created"}
 
     def get_working_copy(self, collection: str, slug: str) -> Dict[str, Any]:
-        self.proj_validator.ensure_collection(collection)
         project_dir = self.repo.get_project_dir(collection, slug)
         state = self.repo.get_doc_state(project_dir)
         local_md = project_dir / f"{slug}.md"
@@ -60,7 +58,6 @@ class ProjectWorkingCopyService:
         return {"content": "", "source": "template", "state": state}
 
     def save_working_copy(self, collection: str, slug: str, content: str) -> Dict[str, Any]:
-        self.proj_validator.ensure_collection(collection)
         self.cont_validator.ensure_content(content)
         
         err = self.cont_validator.validate_schema(content, collection)
@@ -72,7 +69,6 @@ class ProjectWorkingCopyService:
         return {"status": "saved", "id": slug}
 
     def revert_working_copy(self, collection: str, slug: str) -> Dict[str, Any]:
-        self.proj_validator.ensure_collection(collection)
         project_dir = self.repo.get_project_dir(collection, slug)
         portfolio_md = self.repo.resolve_portfolio_path(collection, slug)
         if not portfolio_md: raise FileNotFoundError("No portfolio version to revert to")
@@ -83,7 +79,6 @@ class ProjectWorkingCopyService:
         return {"status": "reverted", "content": content}
 
     def get_translation_copy(self, collection: str, slug: str) -> Dict[str, Any]:
-        self.proj_validator.ensure_collection(collection)
         project_dir = self.repo.get_project_dir(collection, slug)
         local_en_md = project_dir / f"{slug}.en.md"
         portfolio_en_md = self.repo.portfolio_content / collection / "en" / f"{slug}.md"
@@ -98,7 +93,6 @@ class ProjectWorkingCopyService:
         return {"content": content, "is_working_copy_active": local_en_md.exists()}
 
     def save_translation_copy(self, collection: str, slug: str, content: str):
-        self.proj_validator.ensure_collection(collection)
         self.cont_validator.ensure_content(content)
         err = self.cont_validator.validate_schema(content, collection)
         if err: raise ValueError(f"Validación estructural: {err}")
