@@ -13,6 +13,7 @@ Thumbs.db
 # Tlacuilo Internal Memory & Agents
 data/
 brain/
+projects/
 .agent/
 .agents/
 .tlacuilo/
