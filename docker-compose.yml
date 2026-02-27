@@ -15,6 +15,7 @@ services:
       - ./projects:/home/tlacuilo/projects
       - ${PORTAFOLIO_PATH:-./portfolio}:/home/tlacuilo/portfolio
       - ./prompts:/app/prompts:ro
+      - ./workflows:/app/workflows:ro
     env_file:
       - .env
     environment:
