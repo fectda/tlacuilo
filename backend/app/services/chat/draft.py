@@ -64,7 +64,9 @@ class ChatDraftService:
                 llm_client=self.llm, 
                 template_content=template_content, 
                 prompt_service=self.prompts,
-                target_language="Spanish"
+                target_language="Spanish",
+                debug_dir=debug_dir,
+                log_prefix="es_"
             )
             
             # Markdown Copy (Point 2: Encapsulated helper)
@@ -112,7 +114,9 @@ class ChatDraftService:
                 llm_client=self.llm, 
                 template_content=template_content, 
                 prompt_service=self.prompts, 
-                target_language="English"
+                target_language="English",
+                debug_dir=debug_dir,
+                log_prefix="en_"
             )
             
             # Markdown Copy (Point 2: Encapsulated helper)

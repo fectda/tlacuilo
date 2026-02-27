@@ -8,7 +8,8 @@ logger = logging.getLogger(__name__)
 class ContentValidator:
     async def validate_all(self, content: str, collection: Optional[str] = None, 
                            llm_client: Optional[Any] = None, template_content: Optional[str] = None,
-                           prompt_service: Optional[Any] = None, target_language: str = "Spanish") -> Optional[str]:
+                           prompt_service: Optional[Any] = None, target_language: str = "Spanish",
+                           debug_dir: Optional[Any] = None, log_prefix: str = "") -> Optional[str]:
         """Orchestrates all validation steps."""
         err = self.validate_frontmatter(content)
         if err: return err
@@ -17,7 +18,7 @@ class ContentValidator:
         if err: return err
         
         if collection and llm_client and template_content and prompt_service:
-            err = await self.validate_semantic_structure(content, collection, llm_client, template_content, prompt_service, target_language)
+            err = await self.validate_semantic_structure(content, collection, llm_client, template_content, prompt_service, target_language, debug_dir, log_prefix)
             if err: return err
             
         return None
@@ -41,7 +42,8 @@ class ContentValidator:
 
     async def validate_semantic_structure(self, content: str, collection: str, 
                                           llm_client: Any, template_content: str, 
-                                          prompt_service: Any, target_language: str = "Spanish") -> Optional[str]:
+                                          prompt_service: Any, target_language: str = "Spanish",
+                                          debug_dir: Optional[Any] = None, log_prefix: str = "") -> Optional[str]:
         """Validates headers semantically using an LLM Judge."""
         lines = content.split("\n")
         h2_lines = [line.strip() for line in lines if line.strip().startswith("## ")]
@@ -61,7 +63,7 @@ class ContentValidator:
             {"role": "user", "content": strategy_prompt}
         ]
         
-        judgment = await self._get_valid_llm_json(llm_client, messages)
+        judgment = await self._get_valid_llm_json(llm_client, messages, debug_dir, log_prefix)
         if judgment is None:
             return "LLM Validator failed to return valid JSON format after 3 attempts."
             
@@ -70,11 +72,18 @@ class ContentValidator:
             
         return None
 
-    async def _get_valid_llm_json(self, llm_client: Any, messages: List[Dict[str, str]]) -> Optional[Dict[str, Any]]:
+    async def _get_valid_llm_json(self, llm_client: Any, messages: List[Dict[str, str]], 
+                                  debug_dir: Optional[Any] = None, log_prefix: str = "") -> Optional[Dict[str, Any]]:
         """Handles the retry loop to ensure the LLM returns a valid JSON."""
         for attempt in range(3):
             try:
-                response_text = await llm_client.chat(messages)
+                debug_path = None
+                if debug_dir:
+                    import datetime
+                    ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+                    debug_path = debug_dir / f"{ts}_{log_prefix}val_at{attempt+1}_history.json"
+                
+                response_text = await llm_client.chat(messages, debug_path=debug_path)
                 return self._parse_llm_json(response_text)
             except json.JSONDecodeError as json_e:
                 logger.warning(f"LLM Validator returned invalid JSON (attempt {attempt+1}/3). Response: {response_text}")
