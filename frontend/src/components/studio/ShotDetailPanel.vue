@@ -31,6 +31,7 @@ const isEditingMeta = ref(false)
 const metaEdit = ref({})
 const selectedComflyId = ref(null)
 const pollingInterval = ref(null)
+const cacheBuster = ref(Date.now())
 
 // --- Polling logic ---
 const startPolling = () => {
@@ -45,6 +46,7 @@ const startPolling = () => {
         const stillQueued = (images || []).some(img => img.status === 'queue')
         if (!stillQueued) {
             console.log('All images processed, stopping polling.')
+            cacheBuster.value = Date.now() // Refresh images once finished
             stopPolling()
         }
     }, 3000)
@@ -63,6 +65,7 @@ watch(() => shot.value?.images, (images) => {
     if (hasQueuedImages) {
         startPolling()
     } else {
+        if (pollingInterval.value) cacheBuster.value = Date.now()
         stopPolling()
     }
 }, { immediate: true, deep: true })
@@ -102,8 +105,7 @@ const accent = computed(() => atmosphereAccent[shot.value?.atmosphere] || '#6b72
 // Image URL helper with cache buster
 const getImageUrl = (id) => {
     const baseUrl = StudioService.getShotImageUrl(props.collection, props.slug, shot.value.shot_id, id)
-    // We add a timestamp to force reload if the image just finished processing
-    return `${baseUrl}?t=${Date.now()}`
+    return `${baseUrl}?t=${cacheBuster.value}`
 }
 
 // Original image URL
@@ -227,7 +229,7 @@ const handleDeleteVariant = async (comflyId) => {
                         </div>
 
                         <!-- Display -->
-                        <div v-if="!isEditingMeta" class="border border-white/10 divide-y divide-white/5">
+                        <div v-show="!isEditingMeta" class="border border-white/10 divide-y divide-white/5">
                             <div class="p-3 space-y-0.5">
                                 <p class="text-[8px] text-neutral-500 uppercase tracking-wider">Title</p>
                                 <p class="text-[11px] text-white leading-relaxed font-bold">{{ shot.title || '—' }}</p>
@@ -256,20 +258,27 @@ const handleDeleteVariant = async (comflyId) => {
                         </div>
 
                         <!-- Edit form -->
-                        <div v-else class="border border-white/20 divide-y divide-white/10">
+                        <div v-show="isEditingMeta" class="border border-white/20 divide-y divide-white/10">
                             <div class="p-3 space-y-1">
                                 <p class="text-[8px] text-neutral-400 uppercase tracking-wider">Title</p>
                                 <input v-model="metaEdit.title"
+                                    name="shot_title_edit"
+                                    autocomplete="off"
                                     class="w-full bg-transparent text-[11px] text-white focus:outline-none border-b border-white/20 focus:border-white pb-1" />
                             </div>
                             <div class="p-3 space-y-1">
                                 <p class="text-[8px] text-neutral-400 uppercase tracking-wider">Description</p>
                                 <textarea v-model="metaEdit.description" rows="2"
+                                    name="shot_desc_edit"
+                                    autocomplete="off"
+                                    spellcheck="false"
                                     class="w-full bg-transparent text-[11px] text-white focus:outline-none resize-none border-b border-white/20 focus:border-white pb-1"></textarea>
                             </div>
                             <div class="p-3 space-y-1">
                                 <p class="text-[8px] text-neutral-400 uppercase tracking-wider">Focus</p>
                                 <input v-model="metaEdit.focus"
+                                    name="shot_focus_edit"
+                                    autocomplete="off"
                                     class="w-full bg-transparent text-[11px] text-white focus:outline-none border-b border-white/20 focus:border-white pb-1" />
                             </div>
                             <div class="p-3 bg-black/10">
@@ -376,7 +385,7 @@ const handleDeleteVariant = async (comflyId) => {
 
                                 <!-- View Layer (Image) -->
                                 <div 
-                                    v-if="selectedComflyId !== img.id" 
+                                    v-show="selectedComflyId !== img.id" 
                                     @click="selectedComflyId = img.id"
                                     class="absolute inset-0 cursor-pointer group"
                                 >
@@ -387,21 +396,28 @@ const handleDeleteVariant = async (comflyId) => {
                                 </div>
 
                                 <!-- Action Layer (Overlay when selected) -->
-                                <div v-else-if="img.status !== 'queue'" class="absolute inset-0 bg-[#080808] flex flex-col z-20">
+                                <div v-show="selectedComflyId === img.id && img.status !== 'queue'" class="absolute inset-0 bg-[#080808] flex flex-col z-20">
+                                    <!-- Focused Image Preview (small background) -->
+                                    <div class="absolute inset-0 opacity-10 pointer-events-none">
+                                        <img :src="getImageUrl(img.id)" class="w-full h-full object-cover blur-sm" />
+                                    </div>
+                                    
                                     <!-- Header -->
-                                    <div class="flex items-center justify-between px-3 py-2 border-b border-white/5 shrink-0">
+                                    <div class="relative flex items-center justify-between px-3 py-2 border-b border-white/5 shrink-0 z-10 bg-black/40">
                                         <span class="text-[8px] text-neutral-500 font-bold uppercase tracking-widest">{{ img.id.split('-')[0] }}</span>
                                         <button @click.stop="selectedComflyId = null" class="text-neutral-500 hover:text-white text-[9px] font-black uppercase">✕ CLOSE</button>
                                     </div>
 
                                     <!-- Body: Correction -->
-                                    <div class="flex-1 p-3 flex flex-col min-h-0 space-y-2 overflow-y-auto custom-scrollbar">
+                                    <div class="relative flex-1 p-3 flex flex-col min-h-0 space-y-2 overflow-y-auto custom-scrollbar z-10">
                                         <div class="space-y-2 flex-1 flex flex-col pt-1">
                                             <p class="text-[9px] text-neutral-300 font-black uppercase tracking-[0.2em]">Refinement Instructions</p>
                                             <textarea
                                                 v-model="correctionText" rows="2"
                                                 autocomplete="off"
                                                 spellcheck="false"
+                                                data-lpignore="true"
+                                                data-form-type="other"
                                                 placeholder="Describe changes (e.g. 'more contrast', 'focus on chip')..."
                                                 class="flex-1 w-full bg-[#111] border-2 border-white/20 p-2.5 text-[11px] text-white focus:outline-none focus:border-white/60 resize-none placeholder-neutral-600 shadow-inner"
                                             ></textarea>
@@ -457,18 +473,18 @@ const handleDeleteVariant = async (comflyId) => {
                             ⚠ Completa <strong>Focus</strong> y <strong>Atmosphere</strong> antes de subir.
                         </div>
 
-                        <input ref="fileInput" type="file" accept="image/png,image/jpeg" class="hidden" @change="handleFileSelected" />
+                        <input ref="fileInput" id="shot_file_input" type="file" accept="image/png,image/jpeg" class="hidden" @change="handleFileSelected" />
 
                         <button
+                            type="button"
                             @click="triggerUpload"
                             :disabled="studioStore.isGenerating || !shot.focus || !shot.atmosphere"
-                            class="w-full py-3 border text-[10px] font-black uppercase tracking-[0.25em] transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                            style="border-color: rgba(255,255,255,0.25); color: white;"
-                            onmouseenter="this.style.background='rgba(255,255,255,0.06)'"
-                            onmouseleave="this.style.background='transparent'"
+                            :class="[
+                                'w-full py-3 border text-[10px] font-black uppercase tracking-[0.25em] transition-all disabled:opacity-30 disabled:cursor-not-allowed',
+                                studioStore.isGenerating ? 'border-white/10 bg-white/5 text-neutral-500' : 'border-white/25 text-white hover:bg-white/5'
+                            ]"
                         >
-                            <span v-if="studioStore.isGenerating">PROCESANDO…</span>
-                            <span v-else>{{ shot.has_original ? '↺ RE-UPLOAD & RESTART' : '↑ UPLOAD & GENERATE' }}</span>
+                            {{ studioStore.isGenerating ? 'PROCESANDO…' : (shot.has_original ? '↺ RE-UPLOAD & RESTART' : '↑ UPLOAD & GENERATE') }}
                         </button>
                     </section>
 
