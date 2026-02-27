@@ -25,8 +25,9 @@ class PromptService:
         path = self.prompts_path / "strategies" / strategy_file
         return self.load_prompt(path)
 
-    def get_draft_strategy(self) -> str:
-        path = self.prompts_path / "strategies" / "draft_generation.md"
+    def get_draft_strategy(self, collection: str) -> str:
+        strategy_file = "draft_technical.md" if collection in ["atoms", "bits"] else "draft_mind.md"
+        path = self.prompts_path / "strategies" / strategy_file
         return self.load_prompt(path)
 
     def get_global_system_prompt(self, collection: str, slug: str, project_content: str) -> str:

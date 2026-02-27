@@ -31,13 +31,21 @@ class ChatDraftService:
         
         history = self.repo.get_chat_history(p_dir)
         wc = self.working_copy_service.get_working_copy(collection, slug)
+        
+        # Identity injection (Architectural Rule 5.B)
+        if not history or history[0]["role"] != "system":
+            sys_p = self.prompts.get_system_prompt(collection, slug, wc["content"])
+            strat_p = self.prompts.get_strategy_prompt(collection)
+            history.insert(0, {"role": "system", "content": f"{sys_p}\n\n{strat_p}", "system_only": True})
+
         template_path = self.repo.portfolio_path / "src" / "templates" / f"{collection}-template.md"
         template_content = self.repo.read_text(template_path) if template_path.exists() else ""
         
+        # Split Strategy adaptation (Draft Technical vs Draft Mind)
         context = (
-            f"## ESTRUCTURA:\n```markdown\n{template_content}\n```\n\n"
+            f"## ESTRUCTURA DE REFERENCIA:\n```markdown\n{template_content}\n```\n\n"
             f"## CONTENIDO ACTUAL:\n```markdown\n{wc['content']}\n```\n\n"
-            f"## INSTRUCCIONES:\n{self.prompts.get_draft_strategy()}"
+            f"## INSTRUCCIONES DE GENERACIÓN:\n{self.prompts.get_draft_strategy(collection)}"
         )
         
         req_msg = {"role": "user", "content": context, "system_only": True, "timestamp": datetime.now().isoformat()}
@@ -62,7 +70,8 @@ class ChatDraftService:
                 history.append({"role": "assistant", "content": candidate, "system_only": True, "timestamp": datetime.now().isoformat()})
                 self.repo.save_chat_history(p_dir, history)
                 return candidate
-        raise ValueError("IA failed valid draft generation.")
+                
+        raise ValueError(f"IA failed valid draft generation. Last error: {err}")
 
     async def process_translation_draft(self, collection: str, slug: str, from_scratch: bool, 
                                        instruction: Optional[str] = None, 
