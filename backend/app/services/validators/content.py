@@ -1,13 +1,9 @@
-import re
 import frontmatter
-import logging
 from typing import List, Dict, Any, Optional
 
-logger = logging.getLogger(__name__)
-
-class ValidationService:
+class ContentValidator:
     def validate_schema(self, content: str, collection: Optional[str] = None) -> Optional[str]:
-        """Validates Frontmatter Schema and Structural Headers. Returns error message or None."""
+        """Validates Frontmatter Schema and Structural Headers."""
         if not content.strip(): return "Content cannot be empty"
         if not content.strip().startswith("---"): return "Invalid Markdown: Missing frontmatter"
         
@@ -17,15 +13,14 @@ class ValidationService:
             missing_keys = [k for k in required_keys if k not in post.metadata]
             if missing_keys: return f"Missing metadata keys: {missing_keys}"
             
-            # Structural Header Check
             if collection:
                 header_mapping = []
                 if collection in ["atoms", "bits"]:
                     header_mapping = [
                         ["El Desafío", "The Challenge"],
-                        ["La Solución", "The Solution", "Agent Orchestration"],
-                        ["Proceso de Armado", "Build Process", "The Assembly", "Assembly Process", "Engineering and Refactoring"],
-                        ["Retos y Aprendizajes", "Challenges and Lessons", "Lessons Learned", "The Intervention"],
+                        ["La Solución", "The Solution"],
+                        ["Proceso de Armado", "Build Process"],
+                        ["Retos y Aprendizajes", "Challenges and Lessons"],
                         ["Veredicto", "Verdict"]
                     ]
                 elif collection == "mind":
@@ -36,18 +31,12 @@ class ValidationService:
                         ["La Conclusión", "The Conclusion"]
                     ]
                 
-                missing_headers = []
                 lines = content.split("\n")
                 header_lines = [line.strip().lower() for line in lines if line.strip().startswith("#")]
                 
+                missing_headers = []
                 for alternatives in header_mapping:
-                    found = False
-                    for alt in alternatives:
-                        alt_lower = alt.lower()
-                        if any(alt_lower in h_line for h_line in header_lines):
-                            found = True
-                            break
-                    if not found:
+                    if not any(alt.lower() in h_line for alt in alternatives for h_line in header_lines):
                         missing_headers.append(alternatives[0])
                 
                 if missing_headers:
@@ -60,35 +49,20 @@ class ValidationService:
     def sanitize_draft(self, raw_content: str) -> str:
         """Cleans code blocks and repairs missing headers from LLM output."""
         candidate = raw_content.strip()
-        
-        # 1. Strip Code Blocks
         if candidate.startswith("```"):
             lines = candidate.split("\n")
             if lines[0].startswith("```"): lines = lines[1:]
             if lines and lines[-1].startswith("```"): lines = lines[:-1]
             candidate = "\n".join(lines).strip()
         
-        # 2. Handle redundant/triple separators at start
-        # If it starts with multiple --- blocks, collapse or remove the empty ones
         while candidate.startswith("---") and candidate[3:].strip().startswith("---"):
-            # Remove the first --- and any whitespace until the next one
             candidate = candidate[3:].strip()
 
-        # 3. Repair missing opening --- if title: exists
         if not candidate.startswith("---") and candidate.startswith("title:"):
             candidate = "---\n" + candidate
             
-        # 4. Handle Preamble and later separators
-        if "---" in candidate and not candidate.startswith("---"):
-            idx = candidate.find("---")
-            preamble = candidate[:idx].strip()
-            if not preamble.startswith("title:"):
-                candidate = candidate[idx:].strip()
-            else:
-                candidate = "---\n" + candidate
-        
         return candidate
 
-    def check_spelling(self, content: str) -> List[str]:
-        # Placeholder for spellcheck logic
-        return []
+    def ensure_content(self, content: Optional[str], message: str = "Content is required"):
+        if not content or not content.strip():
+            raise ValueError(message)

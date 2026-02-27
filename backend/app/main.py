@@ -1,5 +1,6 @@
 import logging
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.endpoints import projects, system, content, studio
@@ -14,10 +15,9 @@ def validate_critical_paths():
         "PROJECTS": settings.PROJECTS_PATH,
         "PROMPTS": settings.PROMPTS_PATH
     }
-    
     for name, path in critical_paths.items():
         if not path.exists():
-            logger.warning(f"CRITICAL WARNING: {name} volume not mounted at {path}. Tlacuilo may fail.")
+            logger.warning(f"CRITICAL WARNING: {name} volume not mounted at {path}.")
         else:
             logger.info(f"Verified {name} path at {path}")
 
@@ -29,10 +29,22 @@ app = FastAPI(
     version="0.1.0"
 )
 
+# --- Global Exception Handlers (Explicit Registration) ---
+
+@app.exception_handler(ValueError)
+async def value_error_handler(request: Request, exc: ValueError):
+    logger.warning(f"Validation Error (400): {exc}")
+    return JSONResponse(status_code=400, content={"detail": str(exc)})
+
+@app.exception_handler(FileNotFoundError)
+async def file_not_found_handler(request: Request, exc: FileNotFoundError):
+    logger.warning(f"Resource Not Found (404): {exc}")
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # TODO: Restrict in production
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -44,10 +56,9 @@ app.include_router(system.router, prefix="/api/system", tags=["system"])
 app.include_router(content.router, prefix="/api", tags=["content"])
 app.include_router(studio.router, prefix="/api", tags=["studio"])
 
-
 @app.get("/")
 async def root():
-    return {"mensaje": "El Backend de Tlacuilo está en marcha. Visita /docs para la documentación de la API."}
+    return {"mensaje": "Backend Tlacuilo Operativo."}
 
 @app.get("/health")
 async def health():
