@@ -1,50 +1,99 @@
 import frontmatter
+import json
+import logging
 from typing import List, Dict, Any, Optional
 
+logger = logging.getLogger(__name__)
+
 class ContentValidator:
-    def validate_schema(self, content: str, collection: Optional[str] = None) -> Optional[str]:
-        """Validates Frontmatter Schema and Structural Headers."""
+    async def validate_all(self, content: str, collection: Optional[str] = None, 
+                           llm_client: Optional[Any] = None, template_content: Optional[str] = None,
+                           prompt_service: Optional[Any] = None, target_language: str = "Spanish") -> Optional[str]:
+        """Orchestrates all validation steps."""
+        err = self.validate_frontmatter(content)
+        if err: return err
+        
+        err = self.validate_metadata(content)
+        if err: return err
+        
+        if collection and llm_client and template_content and prompt_service:
+            err = await self.validate_semantic_structure(content, collection, llm_client, template_content, prompt_service, target_language)
+            if err: return err
+            
+        return None
+
+    def validate_frontmatter(self, content: str) -> Optional[str]:
+        """Validates basic markdown structure."""
         if not content.strip(): return "Content cannot be empty"
         if not content.strip().startswith("---"): return "Invalid Markdown: Missing frontmatter"
-        
+        return None
+
+    def validate_metadata(self, content: str) -> Optional[str]:
+        """Validates required frontmatter keys."""
         try:
             post = frontmatter.loads(content)
             required_keys = ["title", "description", "draft"]
             missing_keys = [k for k in required_keys if k not in post.metadata]
             if missing_keys: return f"Missing metadata keys: {missing_keys}"
-            
-            if collection:
-                header_mapping = []
-                if collection in ["atoms", "bits"]:
-                    header_mapping = [
-                        ["El Desafío", "The Challenge"],
-                        ["La Solución", "The Solution"],
-                        ["Proceso de Armado", "Build Process"],
-                        ["Retos y Aprendizajes", "Challenges and Lessons"],
-                        ["Veredicto", "Verdict"]
-                    ]
-                elif collection == "mind":
-                    header_mapping = [
-                        ["La Premisa", "The Premise"],
-                        ["El Argumento", "The Argument"],
-                        ["La Aplicación", "The Application"],
-                        ["La Conclusión", "The Conclusion"]
-                    ]
-                
-                lines = content.split("\n")
-                header_lines = [line.strip().lower() for line in lines if line.strip().startswith("#")]
-                
-                missing_headers = []
-                for alternatives in header_mapping:
-                    if not any(alt.lower() in h_line for alt in alternatives for h_line in header_lines):
-                        missing_headers.append(alternatives[0])
-                
-                if missing_headers:
-                    return f"Missing required sections: {missing_headers}"
-
         except Exception as e:
-            return f"Validation error: {str(e)}"
+            return f"Metadata validation error: {str(e)}"
         return None
+
+    async def validate_semantic_structure(self, content: str, collection: str, 
+                                          llm_client: Any, template_content: str, 
+                                          prompt_service: Any, target_language: str = "Spanish") -> Optional[str]:
+        """Validates headers semantically using an LLM Judge."""
+        lines = content.split("\n")
+        h2_lines = [line.strip() for line in lines if line.strip().startswith("## ")]
+        
+        system_prompt = prompt_service.get_structural_validator_prompt()
+        strategy_template = prompt_service.get_semantic_validation_strategy()
+        
+        generated_headers_str = "\n".join(h2_lines)
+        strategy_prompt = strategy_template.format(
+            template_content=template_content,
+            generated_headers=generated_headers_str,
+            target_language=target_language
+        )
+        
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": strategy_prompt}
+        ]
+        
+        judgment = await self._get_valid_llm_json(llm_client, messages)
+        if judgment is None:
+            return "LLM Validator failed to return valid JSON format after 3 attempts."
+            
+        if not judgment.get("valid"):
+            return f"Semantic structure validation failed: {judgment.get('error', 'Unknown missing sections')}. Found headers: {h2_lines}"
+            
+        return None
+
+    async def _get_valid_llm_json(self, llm_client: Any, messages: List[Dict[str, str]]) -> Optional[Dict[str, Any]]:
+        """Handles the retry loop to ensure the LLM returns a valid JSON."""
+        for attempt in range(3):
+            try:
+                response_text = await llm_client.chat(messages)
+                return self._parse_llm_json(response_text)
+            except json.JSONDecodeError as json_e:
+                logger.warning(f"LLM Validator returned invalid JSON (attempt {attempt+1}/3). Response: {response_text}")
+                # Loop continues to retry
+            except Exception as llm_e:
+                logger.warning(f"LLM Validator exception: {llm_e}")
+                break
+        return None
+
+    def _parse_llm_json(self, raw_response: str) -> Dict[str, Any]:
+        """Cleans markdown blocks and parses JSON from the LLM response."""
+        text = raw_response.strip()
+        if text.startswith("```json"):
+            text = text[7:]
+        if text.endswith("```"):
+            text = text[:-3]
+        text = text.strip()
+        
+        return json.loads(text)
 
     def sanitize_draft(self, raw_content: str) -> str:
         """Cleans code blocks and repairs missing headers from LLM output."""

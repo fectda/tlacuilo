@@ -63,6 +63,14 @@ class PromptService:
         path = self.prompts_path / "system" / "translator.md"
         return self.load_prompt(path)
 
+    def get_structural_validator_prompt(self) -> str:
+        path = self.prompts_path / "system" / "structural_validator.md"
+        return self.load_prompt(path)
+
+    def get_semantic_validation_strategy(self) -> str:
+        path = self.prompts_path / "strategies" / "semantic_validation.md"
+        return self.load_prompt(path)
+
     def get_ixtli_base(self) -> str:
         path = self.prompts_path / "strategies" / "ixtli" / "base.md"
         return self.load_prompt(path).strip()

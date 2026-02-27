@@ -60,7 +60,14 @@ class ChatDraftService:
             raw = await self.llm.chat(draft_history, debug_path=debug_dir / log_name)
             
             candidate = self.cont_validator.sanitize_draft(raw)
-            err = self.cont_validator.validate_schema(candidate, collection)
+            err = await self.cont_validator.validate_all(
+                content=candidate, 
+                collection=collection, 
+                llm_client=self.llm, 
+                template_content=template_content, 
+                prompt_service=self.prompts,
+                target_language="Spanish"
+            )
             
             # Markdown Copy (Point 2: Encapsulated helper)
             self._save_debug_md(debug_dir / f"{ts}_at{attempt+1}_{'ok' if not err else 'fail'}.md", raw)
@@ -90,6 +97,10 @@ class ChatDraftService:
 
         msgs = [{"role": "system", "content": sys_msg}, {"role": "user", "content": user_msg}]
         
+
+        template_path = self.repo.portfolio_path / "src" / "templates" / f"{collection}-template.md"
+        template_content = self.repo.read_text(template_path) if template_path.exists() else ""
+        
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         debug_dir = p_dir / "drafts-tests"
 
@@ -99,7 +110,14 @@ class ChatDraftService:
             msgs.append({"role": "assistant", "content": raw})
             
             candidate = self.cont_validator.sanitize_draft(raw)
-            err = self.cont_validator.validate_schema(candidate, collection)
+            err = await self.cont_validator.validate_all(
+                content=candidate, 
+                collection=collection, 
+                llm_client=self.llm, 
+                template_content=template_content, 
+                prompt_service=self.prompts, 
+                target_language="English"
+            )
             
             # Markdown Copy (Point 2: Encapsulated helper)
             self._save_debug_md(debug_dir / f"{ts}_at{attempt+1}_{'en_ok' if not err else 'en_fail'}.md", raw)
