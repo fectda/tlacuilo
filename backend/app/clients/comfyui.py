@@ -71,7 +71,6 @@ class ComfyUIClient:
     def build_generate_workflow(self, visual_prompt: str, server_filename: str, seed: int) -> Dict[str, Any]:
         """Build and inject values into the ixtli_generate_api workflow."""
         workflow_path = settings.PROMPTS_PATH / ".." / "workflows" / "ixtli_generate_api.json"
-        import json
         if not workflow_path.exists():
             raise FileNotFoundError(f"Workflow not found: {workflow_path}")
         with open(workflow_path) as f:

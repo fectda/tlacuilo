@@ -1,4 +1,6 @@
+import json
 import re
+import shutil
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 from app.repositories.project_repository import ProjectRepository
@@ -35,7 +37,6 @@ class StudioShotManager:
         raw = await self.llm.chat([{"role": "system", "content": strategy}, {"role": "user", "content": content}])
         
         match = re.search(r"\[.*\]", raw, re.DOTALL)
-        import json
         shots = json.loads(match.group(0)) if match else []
 
         created = []
