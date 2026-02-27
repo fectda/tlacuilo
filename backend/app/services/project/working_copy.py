@@ -27,16 +27,16 @@ class ProjectWorkingCopyService:
         self.repo.save_chat_history(project_dir, [])
         self.repo.save_doc_state(project_dir, {"doc_status": "borrador", "is_working_copy_active": True})
 
-        template_path = self.repo.portfolio_path / "src" / "templates" / f"{collection}-template.md"
+        template_path = self.repo.portfolio_path / "src" / "content" / collection / f"_template.md"
         local_md = project_dir / f"{slug}.md"
         
         if template_path.exists():
-            content = self.repo.read_text(template_path).replace("TITLE_PLACEHOLDER", name)
-            if name not in content:
-                content = re.sub(r'^title:\s*".*"', f'title: "{name}"', content, flags=re.MULTILINE)
+            content = self.repo.read_text(template_path)
+            # Try to inject title into existing frontmatter
+            content = re.sub(r'^title:\s*".*"', f'title: "{name}"', content, flags=re.MULTILINE)
         else:
             header = "---\n"
-            content = f"{header}title: \"{name}\"\ndescription: \"Created via Tlacuilo\"\ndraft: true\ntype: {collection.upper()}\n---\n"
+            content = f"{header}title: \"{name}\"\ndescription: \"Created via Tlacuilo\"\ndraft: true\ndate: 2026-01-01\ntags: [\"draft\"]\n---\n\n## La Tesis de la Resistencia\n\n\n## La Anatomía de la Fricción\n\n\n## El Imperativo del Rediseño\n\n\n## El Veredicto Final\n"
             
         self.repo.write_text(local_md, content)
         return {"id": slug, "status": "created"}

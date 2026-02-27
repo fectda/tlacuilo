@@ -56,18 +56,10 @@ def validate_project_exists(collection: str = Path(...), slug: str = Path(...)):
     if not local_exists and not portfolio_exists:
         raise HTTPException(status_code=404, detail=f"Project '{slug}' does not exist in collection '{collection}'.")
 
-def validate_shot_id(shot_id: str = Path(...)):
-    try:
-        _studio_validator.ensure_shot_id(shot_id)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
 def validate_shot_exists(collection: str = Path(...), slug: str = Path(...), shot_id: str = Path(...)):
-    try:
-        path = _repo.get_project_dir(collection, slug) / "shots" / shot_id
-        _studio_validator.ensure_shot_exists(path)
-    except FileNotFoundError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+    path = _repo.get_project_dir(collection, slug) / "shots" / shot_id
+    if not path.exists():
+        raise HTTPException(status_code=404, detail=f"Shot '{shot_id}' does not exist.")
 
 # Project Services
 def get_project_discovery():

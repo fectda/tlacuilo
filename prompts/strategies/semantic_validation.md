@@ -20,7 +20,7 @@ Does the logical flow and meaning of the "Actually Generated Headers" sufficient
 You must respond with ONLY a single JSON object. No preamble, no formatting blocks.
 
 If the structure is VALID and complete, return EXACTLY:
-{"valid": true, "error": ""}
+{{"valid": true, "error": ""}}
 
 If the structure is INVALID (missing key concepts, or wrong language), return EXACTLY:
-{"valid": false, "error": "Missing section [X] OR translated to wrong language (Expected: {target_language})"}
+{{"valid": false, "error": "Missing section [X] OR translated to wrong language (Expected: {target_language})" }}

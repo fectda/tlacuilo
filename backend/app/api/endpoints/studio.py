@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from app.api.deps import get_studio_shot_manager, get_studio_generation, get_studio_assets
 from app.services.studio.generation import StudioGenerationService
 from app.services.studio.assets import StudioAssetService
+from app.services.studio.shot_manager import StudioShotManager
 
 router = APIRouter()
 

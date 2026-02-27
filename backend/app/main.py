@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.endpoints import projects, system, studio, chat, working_copy, publish, studio_project
-from app.api.deps import validate_collection, validate_project_exists, validate_shot_id, validate_shot_exists
+from app.api.deps import validate_collection, validate_project_exists, validate_shot_exists
 from fastapi import Depends
 
 # Configure Logger
@@ -64,7 +64,7 @@ app.include_router(publish.router, prefix="/api", tags=["publish"], dependencies
 app.include_router(studio_project.router, prefix="/api", tags=["studio_project"], dependencies=proj_deps)
 
 # Asset Management Routing (Shot specific logic)
-app.include_router(studio.router, prefix="/api", tags=["studio_shot"], dependencies=proj_deps + [Depends(validate_shot_id), Depends(validate_shot_exists)])
+app.include_router(studio.router, prefix="/api", tags=["studio_shot"], dependencies=proj_deps + [Depends(validate_shot_exists)])
 
 @app.get("/")
 async def root():
