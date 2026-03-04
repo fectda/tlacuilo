@@ -26,7 +26,12 @@ class PromptService:
         return self.load_prompt(path)
 
     def get_draft_strategy(self, collection: str) -> str:
-        strategy_file = "draft_technical.md" if collection in ["atoms", "bits"] else "draft_mind.md"
+        strategy_map = {
+            "bits":  "draft_bits.md",
+            "atoms": "draft_atoms.md",
+            "mind":  "draft_mind.md",
+        }
+        strategy_file = strategy_map.get(collection, "draft_technical.md")
         path = self.prompts_path / "strategies" / strategy_file
         return self.load_prompt(path)
 

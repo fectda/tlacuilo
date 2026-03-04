@@ -26,15 +26,18 @@ Escribe como un cronista técnico que vivió el proyecto: directo, sin adornos, 
 
 Sigue el esquema de la `## ESTRUCTURA DE REFERENCIA` para el frontmatter y los H2. Adapta los títulos al proyecto (ej. "The Challenge" → "El Desafío de Publicar 50 Proyectos").
 
-| Qué contó el usuario | Dónde va |
-|---|---|
-| Por qué nació el proyecto, el dolor inicial | `## El Desafío...` |
-| Cómo lo resolvió, qué servicios construyó | `## La Solución...` |
-| Los pasos técnicos del flujo | `### Mecánicas` (lista numerada OK) |
-| Stack, Docker, modelos, infra | `## Arquitectura y Especificaciones` (lista OK) |
-| Tiempos, resultados, lecciones aprendidas, veredicto | `## Resultados` |
+**Guía por sección:**
 
-**Frontmatter**: Copia los campos de la ESTRUCTURA DE REFERENCIA y llénalos con lo que el usuario mencionó en el chat. Si no fue discutido, déjalo `""` o vacío. Nunca inventes tecnologías ni versiones específicas que no aparezcan en el chat.
+- `## El Desafío` → El dolor inicial, por qué el flujo anterior era insostenible. Solo prosa.
+- `## La Solución` → El razonamiento detrás de la arquitectura: por qué se tomaron esas decisiones, qué se intentó, qué se descartó y por qué. **NO es una lista de componentes** — eso va en Arquitectura. Narra el proceso de diseño, incluyendo lo que falló (ej. los agentes).
+  - `### Mecánicas` → Pasos secuenciales del flujo una vez decidido. **Escribe 1-2 frases de contexto** antes de la lista numerada.
+- `## Arquitectura y Especificaciones` → El único lugar para la lista técnica: frontend, backend, infra, modelos, CI/CD. No repetir lo que ya está en La Solución.
+- `## Resultados` → Métricas reales del chat + lecciones aprendidas en prosa + veredicto honesto.
+
+**Frontmatter**: Copia los campos de la ESTRUCTURA DE REFERENCIA. Llénalos con lo que el usuario mencionó en el chat. Si no fue discutido, déjalo `""`. **Nunca inventes versiones, nombres de modelos ni specs técnicas** que no aparezcan textualmente en el chat.
+
+
+
 
 ---
 
