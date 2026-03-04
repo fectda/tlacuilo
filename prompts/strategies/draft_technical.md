@@ -1,15 +1,47 @@
 # Estrategia: Generación de Borrador Técnico (Atoms/Bits)
 
-**Objetivo**: Generar el documento Markdown COMPLETO poblando la estructura técnica proporcionada.
+**Objetivo**: Generar el documento Markdown COMPLETO que cuente la historia real del proyecto tal como fue narrada en el chat.
 
-## REGLAS DE ORO:
-1. **AUTORIDAD ESTRUCTURAL**: Tu respuesta DEBE seguir fielmente el esquema definido en la sección `## ESTRUCTURA`. No añadas ni quites encabezados.
-2. **IDIOMA Y NARRATIVA (ESPAÑOL)**: Todo el contenido y los encabezados (H2) deben estar en español. No traduzcas literalmente; usa títulos narrativos que fluyan con el proyecto pero que **contengan obligatoriamente** el concepto clave (ej: "The Challenge" -> "El Desafío de la Interfaz", "The Solution" -> "La Solución: Enjambres de IA").
-3. **POBLAMIENTO DE DATOS**: Extrae la información técnica (componentes, stack, retos, soluciones) exclusivamente de la conversación y del `## CONTENIDO ACTUAL`.
-3. **FRONTMATTER**: Copia los campos del bloque de estructura y llénalos con los datos reales. Si un campo no fue discutido, déjalo vacío `""` o en su valor por defecto.
-4. **FORMATO**: Empieza directamente con `---`. Prohibido escribir introducciones, explicaciones o saludos.
+---
 
-## PROCESO:
-1. Analiza el bloque `## ESTRUCTURA` para mapear los campos de metadatos y las secciones H2 requeridas.
-2. Traduce la narrativa de la charla a los encabezados correspondientes (ej: lo que falló va en "Retos y Aprendizajes").
-3. Asegura que el tono sea de ingeniería técnica, directo y honesto.
+## FUENTE DE VERDAD
+
+El historial de conversación es tu única fuente. Léela completa antes de escribir una sola línea. Si un dato no aparece en el chat, déjalo vacío — no lo inventes.
+
+**Datos que NUNCA debes inventar**: versiones de software (ej. Python 3.11), nombres de modelos (ej. Llama 3), métricas (ej. "100%"), URLs, repositorios o demos.
+
+---
+
+## TONO Y ESTILO
+
+Escribe como un cronista técnico que vivió el proyecto: directo, sin adornos, honesto. Si el usuario expresó frustración o derrota, escríbelo así. Si algo falló, nómbralo sin suavizarlo.
+
+**Guía de formato**: Usa prosa narrativa como base de cada sección. Las listas son un recurso, no el esqueleto — úsalas solo cuando genuinamente ayuden a la claridad (pasos secuenciales, stack técnico, métricas puntuales). Si puedes decirlo en un párrafo fluido, no lo conviertas en lista.
+
+**Elementos disponibles**: El portafolio tiene un sistema de CSS que soporta todos los elementos Markdown del archivo `## ELEMENTOS MARKDOWN DISPONIBLES` que se incluye en este contexto. Úsalos con criterio cuando enriquezcan el contenido: blockquotes para citas o reflexiones clave, code blocks para fragmentos de código o configuración real, tablas para comparar opciones o métricas, texto en negrita para conceptos técnicos importantes.
+
+---
+
+## ESTRUCTURA Y MAPEO
+
+Sigue el esquema de la `## ESTRUCTURA DE REFERENCIA` para el frontmatter y los H2. Adapta los títulos al proyecto (ej. "The Challenge" → "El Desafío de Publicar 50 Proyectos").
+
+| Qué contó el usuario | Dónde va |
+|---|---|
+| Por qué nació el proyecto, el dolor inicial | `## El Desafío...` |
+| Cómo lo resolvió, qué servicios construyó | `## La Solución...` |
+| Los pasos técnicos del flujo | `### Mecánicas` (lista numerada OK) |
+| Stack, Docker, modelos, infra | `## Arquitectura y Especificaciones` (lista OK) |
+| Tiempos, resultados, lecciones aprendidas, veredicto | `## Resultados` |
+
+**Frontmatter**: Copia los campos de la ESTRUCTURA DE REFERENCIA y llénalos con lo que el usuario mencionó en el chat. Si no fue discutido, déjalo `""` o vacío. Nunca inventes tecnologías ni versiones específicas que no aparezcan en el chat.
+
+---
+
+## PROCESO
+
+1. Lee toda la conversación de principio a fin.
+2. Identifica: el origen del problema, las decisiones clave, los obstáculos reales, los tiempos, los fallos con los agentes y el veredicto final.
+3. Escribe el frontmatter con los datos extraídos.
+4. Para cada sección, redacta primero en prosa. Agrega una lista solo si los datos lo piden naturalmente (pasos, specs técnicas).
+5. Empieza directamente con `---`. Sin introducciones ni saludos.

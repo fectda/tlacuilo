@@ -39,9 +39,16 @@ class ChatDraftService:
         template_path = self.repo.portfolio_path / "src" / "templates" / f"{collection}-template.md"
         template_content = self.repo.read_text(template_path) if template_path.exists() else ""
         
+        # Reference grammar: CSS elements the portfolio supports
+        ref_collection = "atoms-bits" if collection in ("atoms", "bits") else collection
+        ref_path = self.repo.portfolio_path / "src" / "content" / "_referencias" / f"{ref_collection}-elements-test.md"
+        ref_content = self.repo.read_text(ref_path) if ref_path.exists() else ""
+        ref_section = f"## ELEMENTOS MARKDOWN DISPONIBLES:\n```markdown\n{ref_content}\n```\n\n" if ref_content else ""
+        
         # Split Strategy adaptation (Draft Technical vs Draft Mind)
         context = (
             f"## ESTRUCTURA DE REFERENCIA:\n```markdown\n{template_content}\n```\n\n"
+            f"{ref_section}"
             f"## CONTENIDO ACTUAL:\n```markdown\n{wc['content']}\n```\n\n"
             f"## INSTRUCCIONES DE GENERACIÓN:\n{self.prompts.get_draft_strategy(collection)}"
         )

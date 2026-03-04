@@ -15,6 +15,7 @@ Does the logical flow and meaning of the "Actually Generated Headers" sufficient
 - Look for semantic equivalents across languages (e.g., if target language is English, "The Problem" covers Spanish "Reto/Desafío").
 - Ignore exact word matching; focus on the presence of the required narrative milestones.
 - Ensure the generated headers are in the correct {target_language}.
+- **IMPORTANT**: Only H2 headers (`## `) are evaluated. Subsections like `### Mechanics` or `### Mecánicas` are nested inside a parent H2 and do NOT need to appear as top-level headers. If a concept like "Mechanics" appears as an H3 inside a Solution section, it is VALID — do not reject for a missing H2 equivalent.
 
 # Mandatory Output Contract
 You must respond with ONLY a single JSON object. No preamble, no formatting blocks.
