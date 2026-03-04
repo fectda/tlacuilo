@@ -20,7 +20,7 @@ export default {
      * Send a message to the AI.
      * @param {string} collection - atoms | bits | mind
      * @param {string} slug - project slug
-     * @param {Object} payload - { content, system_only, response_system_only }
+     * @param {Object} payload - { content, system_only, response_system_only, is_note }
      */
     async sendMessage(collection, slug, payload) {
         try {

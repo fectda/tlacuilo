@@ -64,7 +64,8 @@ class ChatConversationService:
 
     async def process_message(self, collection: str, slug: str, content: str, 
                                system_only: bool = False, 
-                               response_system_only: bool = False) -> Dict[str, Any]:
+                               response_system_only: bool = False,
+                               is_note: bool = False) -> Dict[str, Any]:
         self.cont_validator.ensure_content(content)
         p_dir = self.repo.get_project_dir(collection, slug)
         
@@ -75,12 +76,23 @@ class ChatConversationService:
             strat_p = self.prompts.get_strategy_prompt(collection)
             history.insert(0, {"role": "system", "content": f"{sys_p}\n\n{strat_p}", "system_only": True})
 
-        history.append(self._create_message("user", content, system_only))
+        msg = self._create_message("user", content, system_only, is_note)
+        history.append(msg)
+        
+        if is_note:
+            self.repo.save_chat_history(p_dir, history)
+            return msg
+
         res = await self.llm.chat(history)
         msg = self._create_message("assistant", res, response_system_only)
         history.append(msg)
         self.repo.save_chat_history(p_dir, history)
         return msg
 
-    def _create_message(self, role: str, content: str, system_only: bool = False) -> Dict[str, Any]:
-        return {"role": role, "content": content, "timestamp": datetime.now().isoformat(), "system_only": system_only}
+    def _create_message(self, role: str, content: str, system_only: bool = False, is_note: bool = False) -> Dict[str, Any]:
+        msg = {"role": role, "content": content, "timestamp": datetime.now().isoformat()}
+        if system_only:
+            msg["system_only"] = True
+        if is_note:
+            msg["is_note"] = True
+        return msg

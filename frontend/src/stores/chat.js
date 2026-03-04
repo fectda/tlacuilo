@@ -55,7 +55,7 @@ export const useChatStore = defineStore('chat', () => {
         }
     }
 
-    const sendMessage = async (collection, slug, text, systemOnly = false) => {
+    const sendMessage = async (collection, slug, text, systemOnly = false, isNote = false, responseSystemOnly = false) => {
         if (!text.trim()) return
 
         // Local optimistic update (only for non-system messages)
@@ -63,18 +63,23 @@ export const useChatStore = defineStore('chat', () => {
             history.value.push({ role: 'user', content: text, timestamp: new Date().toISOString() })
         }
 
-        isTyping.value = true
+        // Only show typing indicator if we expect an AI response that is not hidden
+        if (!isNote && !responseSystemOnly) {
+            isTyping.value = true
+        }
         chatError.value = null
         draftError.value = null
 
         try {
             const payload = {
                 content: text,
-                system_only: systemOnly
+                system_only: systemOnly,
+                is_note: isNote,
+                response_system_only: responseSystemOnly
             }
             const response = await ChatService.sendMessage(collection, slug, payload)
 
-            if (response && response.content) {
+            if (response && response.content && !isNote && !responseSystemOnly) {
                 history.value.push(response)
             }
             return response

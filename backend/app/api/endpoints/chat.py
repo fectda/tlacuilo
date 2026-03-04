@@ -13,6 +13,7 @@ class MessageRequest(BaseModel):
     content: str
     system_only: Optional[bool] = False
     response_system_only: Optional[bool] = False
+    is_note: Optional[bool] = False
 
 class MessageResponse(BaseModel):
     role: str
@@ -33,12 +34,18 @@ async def init_session(collection: str, slug: str, chat: ChatConversationService
     history = repo.get_chat_history(repo.get_project_dir(collection, slug))
     if not history: return await chat.initialize_new_project(collection, slug)
     last_msg = history[-1]
-    if last_msg["role"] == "user": return await chat.process_message(collection, slug, last_msg["content"], system_only=True)
+    if last_msg["role"] == "user" and not last_msg.get("is_note", False): 
+        return await chat.process_message(collection, slug, last_msg["content"], system_only=True)
     return Response(status_code=204)
 
-@router.post("/{collection}/{slug}/message", response_model=MessageResponse)
-async def send_message(collection: str, slug: str, request: MessageRequest, chat: ChatConversationService = Depends(get_chat_conversation)):
-    return await chat.process_message(collection, slug, request.content, request.system_only, request.response_system_only)
+@router.post("/{collection}/{slug}/message")
+async def send_message(collection: str, slug: str, request: MessageRequest, 
+                       chat: ChatConversationService = Depends(get_chat_conversation),
+                       response: Response = None):
+    res = await chat.process_message(collection, slug, request.content, request.system_only, request.response_system_only, request.is_note)
+    if request.is_note:
+        response.status_code = 202
+    return res
 
 @router.post("/{collection}/{slug}/draft")
 async def generate_draft(collection: str, slug: str, draft: ChatDraftService = Depends(get_chat_draft)):

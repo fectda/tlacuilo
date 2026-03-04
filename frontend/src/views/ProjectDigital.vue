@@ -104,7 +104,7 @@ watch(() => projectStore.isWorkingCopyActive, (val) => {
 </script>
 
 <template>
-    <div class="flex flex-col h-screen bg-black overflow-hidden font-mono">
+    <div class="flex flex-col h-full bg-black overflow-hidden font-mono">
         <!-- Header / Status Bar -->
         <div class="flex items-center justify-between px-6 py-3 border-b border-white/10 bg-[#0a0a0a]">
             <!-- Left: Navigation & Title -->

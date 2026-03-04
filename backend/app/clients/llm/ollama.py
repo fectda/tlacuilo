@@ -14,7 +14,7 @@ class OllamaClient(LLMClient):
         self.model = settings.LLM_MODEL
 
     async def chat(self, messages: List[Dict[str, Any]], model_override: str = None, debug_path: Any = None) -> str:
-        # Sanitizer Protocol: Remove internal metadata (timestamp, system_only)
+        # Sanitizer Protocol: Remove internal metadata (timestamp, system_only, is_note)
         ollama_messages = [{"role": m["role"], "content": m["content"], **({"images": m["images"]} if "images" in m else {})} for m in messages]
         
         payload = {

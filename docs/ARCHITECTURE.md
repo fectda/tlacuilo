@@ -183,14 +183,16 @@ El frontend debe llamar a estos dos endpoints en paralelo al cargar un proyecto.
         -   System Prompt: `prompts/system/tlacuilo_digital.md`
         -   Strategy (Atoms/Bits): `prompts/strategies/atoms_bits_strategy.md`
         -   Strategy (Mind): `prompts/strategies/mind_strategy.md`
-    -   **Input**: `{ "content": "Texto...", "system_only": true|false (opcional), "response_system_only": true|false (opcional) }`.
+    -   **Input**: `{ "content": "Texto...", "system_only": true|false (opcional), "response_system_only": true|false (opcional), "is_note": true|false (opcional) }`.
     -   **Validación**:
         1.  **Existencia**: El objeto no puede ser nulo.
         2.  **`content`**: String NO vacío. No admite espacios en blanco (" ").
         3.  **`system_only`**: Booleano opcional. Marca el mensaje de entrada como oculto.
         4.  **`response_system_only`**: Booleano opcional. Indica si la respuesta de la IA debe guardarse también como oculta.
-    -   **Proceso Interno (Sanitización)**: Antes de enviar a Ollama, el servicio limpia el historial y construye una lista que contiene ÚNICAMENTE `role` y `content`, eliminando cualquier metadato interno (`timestamp`, `system_only`, etc.).
-    -   **Output (Respuesta Exitosa)**: Objeto JSON estándar: `{ "role": "assistant", "content": "Respuesta IA...", "timestamp": "ISO-8601" }`.
+        5.  **`is_note`**: Booleano opcional. Si es verdadero, indica que el mensaje es un monólogo y no espera respuesta computada de la IA.
+    -   **Proceso Interno (Control de Flujo)**: Evalúa `is_note`. Si es `True`, genera un Bypass absoluto, omitiendo el servicio remoto. Si es `False` (por defecto): limpia el historial y construye una lista que contiene ÚNICAMENTE `role` y `content`, eliminando cualquier metadato interno (`timestamp`, `system_only`, etc.) para enviarla a Ollama.
+    -   **Output (Respuesta Exitosa - Diálogo 200)**: Objeto JSON estándar: `{ "role": "assistant", "content": "Respuesta IA...", "timestamp": "ISO-8601" }`.
+    -   **Output (Respuesta Exitosa - Nota 202)**: Objeto JSON con estado: `{ "status": "note_saved", "timestamp": "ISO-8601" }`. El Frontend consume este estado y no espera más renderizado.
     -   **Output (Respuesta Fallida - Error General)**:
         -   **Http Code**: 500/503.
         -   **Efecto**: Si falla CUALQUIER paso tras guardar el mensaje del usuario (IA, IO, Formato), se aborta. El mensaje del usuario persiste, pero el del asistente **NO** se genera. NUNCA se guarda basura.

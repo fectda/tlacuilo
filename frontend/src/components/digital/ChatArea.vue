@@ -17,6 +17,7 @@ const props = defineProps({
 const chatStore = useChatStore()
 const messageInput = ref('')
 const messagesContainer = ref(null)
+const isMonologueMode = ref(false)
 
 const scrollToBottom = async () => {
     await nextTick()
@@ -44,7 +45,7 @@ const handleSend = async () => {
     const textarea = document.getElementById('chat-input')
     if (textarea) textarea.style.height = 'auto'
     
-    await chatStore.sendMessage(props.collection, props.slug, text)
+    await chatStore.sendMessage(props.collection, props.slug, text, false, isMonologueMode.value)
 }
 
 const handleKeydown = (e) => {
@@ -184,9 +185,18 @@ const renderMarkdown = (text) => {
                                 <span class="w-1.5 h-1.5 rounded-full" :class="chatStore.isTyping ? 'bg-accent animate-ping' : 'bg-green-500 shadow-glow-success'"></span>
                                 STATUS: {{ chatStore.isTyping ? 'BUSY' : 'READY' }}
                             </span>
-                             <span class="text-[10px] text-neutral-500 uppercase tracking-[0.2em]">
-                                MODE: {{ chatStore.mode }}
-                            </span>
+                            <div class="flex items-center gap-4">
+                                <button 
+                                    @click="isMonologueMode = !isMonologueMode"
+                                    class="text-[10px] uppercase tracking-[0.2em] flex items-center gap-2 transition-colors"
+                                    :class="isMonologueMode ? 'text-accent shadow-glow-accent' : 'text-neutral-500 hover:text-white'">
+                                    <span class="w-2 h-2 rounded-sm border" :class="isMonologueMode ? 'bg-accent border-accent' : 'border-neutral-500'"></span>
+                                    MODO MONÓLOGO
+                                </button>
+                                <span class="text-[10px] text-neutral-500 uppercase tracking-[0.2em]">
+                                    MODE: {{ chatStore.mode }}
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
