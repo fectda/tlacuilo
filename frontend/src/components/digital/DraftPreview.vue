@@ -3,6 +3,9 @@ import { computed, ref, watch } from 'vue'
 import { marked } from 'marked'
 import { useProjectStore } from '../../stores/project'
 import { useChatStore } from '../../stores/chat'
+import { UI_TEXTS } from '../../constants/uiTexts'
+
+const texts = UI_TEXTS.DRAFT_PREVIEW
 
 const props = defineProps(['collection', 'slug', 'content', 'isTranslation'])
 const projectStore = useProjectStore()
@@ -72,7 +75,7 @@ const handleManualSave = async () => {
 
 const handlePromote = async () => {
     try {
-        if (confirm('¿Estás seguro de promover este borrador al Portafolio?')) {
+        if (confirm(UI_TEXTS.PROJECT_COMMON.CONFIRM_PROMOTE)) {
             persistError.value = null
             await projectStore.promoteProject(props.collection, props.slug)
         }
@@ -98,7 +101,7 @@ watch(localContent, (newVal) => {
 })
 
 const handleDiscard = () => {
-    if (confirm('¿Descartar los cambios actuales y volver a la versión guardada?')) {
+    if (confirm(UI_TEXTS.PROJECT_COMMON.CONFIRM_REVERT)) {
         const savedContent = props.isTranslation 
             ? (projectStore.currentTranslation?.content || '')
             : (projectStore.currentProject?.content || '')
@@ -134,8 +137,8 @@ const handleGenerateDraft = async () => {
                 <div class="flex items-center gap-4">
                     <div class="w-2 h-8 bg-accent animate-pulse"></div>
                     <div class="flex flex-col">
-                        <span class="text-sm font-black tracking-[0.5em] text-accent uppercase">GENERATING DRAFT</span>
-                        <span class="text-[9px] text-neutral-500 tracking-[0.2em] uppercase mt-1">Executing GEM Protocol // Session Active</span>
+                        <span class="text-sm font-black tracking-[0.5em] text-accent uppercase">{{ texts.GENERATING_DRAFT }}</span>
+                        <span class="text-[9px] text-neutral-500 tracking-[0.2em] uppercase mt-1">{{ texts.GEM_PROTOCOL }}</span>
                     </div>
                 </div>
                 <div class="flex gap-2">
@@ -149,7 +152,7 @@ const handleGenerateDraft = async () => {
                     <div class="flex items-center gap-3 mb-4">
                         <div class="w-1.5 h-6 bg-red-500"></div>
                         <span class="text-xs font-black tracking-[0.3em] text-red-500 uppercase">
-                            {{ chatStore.draftError ? (isTranslation ? 'LOCALIZATION_FAILURE' : 'GENERATION_FAILURE') : 'VALIDATION_ERROR' }}
+                            {{ chatStore.draftError ? (isTranslation ? texts.LOCALIZATION_FAILURE : texts.GENERATION_FAILURE) : texts.VALIDATION_ERROR }}
                         </span>
                     </div>
                     <p class="text-sm text-neutral-400 font-mono mb-6 leading-relaxed whitespace-pre-wrap">
@@ -161,12 +164,11 @@ const handleGenerateDraft = async () => {
                             class="text-[10px] flex-1 bg-red-500 text-white hover:bg-red-600 px-4 py-2 transition-all uppercase tracking-widest font-bold">
                             {{ chatStore.draftError ? 'REINTENTAR' : 'ENTENDIDO' }}
                         </button>
-                        <button 
-                            v-if="chatStore.draftError"
-                            @click="chatStore.draftError = null"
-                            class="text-[10px] flex-1 border border-white/20 text-white/50 hover:border-white/40 hover:text-white px-4 py-2 transition-all uppercase tracking-widest font-bold">
-                            CERRAR
-                        </button>
+                            <button 
+                                @click="chatStore.draftError = null"
+                                class="text-[10px] flex-1 border border-white/20 text-white/50 hover:border-white/40 hover:text-white px-4 py-2 transition-all uppercase tracking-widest font-bold">
+                                {{ texts.BTN_CLOSE }}
+                            </button>
                     </div>
                 </div>
             </div>
@@ -192,20 +194,20 @@ const handleGenerateDraft = async () => {
                     @click="handleGenerateDraft"
                     :disabled="chatStore.isTyping || isEditing || chatStore.isDrafting"
                     class="text-[9px] border px-2 py-0.5 transition-all uppercase tracking-widest font-mono bg-white/5 border-white/10 hover:bg-accent hover:text-black hover:border-accent">
-                    <span>[ GENERAR BORRADOR ]</span>
+                    <span>{{ texts.BTN_GENERATE }}</span>
                 </button>
                 <button 
                     @click="isEditing = !isEditing"
                     :disabled="chatStore.isDrafting"
                     class="text-[9px] bg-white/5 border border-white/10 hover:bg-white/10 px-2 py-0.5 transition-all uppercase tracking-widest font-mono">
-                    {{ isEditing ? '[ PREVISUALIZAR ]' : '[ EDITAR ]' }}
+                    {{ isEditing ? texts.BTN_PREVIEW : texts.BTN_EDIT }}
                 </button>
 
                 <template v-if="isDirty">
                     <button 
                         @click="handleDiscard"
                         class="text-[9px] bg-white/5 border border-red-500/20 hover:bg-red-500/10 text-red-400 px-2 py-0.5 transition-all uppercase tracking-widest font-mono">
-                        [ DESCARTAR ]
+                        {{ texts.BTN_DISCARD }}
                     </button>
                     <button 
                         @click="handleManualSave"
@@ -229,7 +231,7 @@ const handleGenerateDraft = async () => {
                 <div class="flex items-center gap-4">
                     <span class="text-[9px] uppercase tracking-widest font-bold"
                           :class="validation.schema_check?.valid ? 'text-green-500' : 'text-red-500'">
-                        {{ validation.schema_check?.valid ? '[ SCHEMA_OK ]' : '[ SCHEMA_ERROR ]' }}
+                        {{ validation.schema_check?.valid ? texts.SCHEMA_OK : texts.SCHEMA_ERROR }}
                     </span>
                     <span v-if="!validation.schema_check?.valid" class="text-[9px] text-red-400 opacity-80 italic">
                         {{ validation.schema_check?.error }}
@@ -276,8 +278,8 @@ const handleGenerateDraft = async () => {
                 <div v-else class="h-full flex flex-col items-center justify-center text-neutral-600">
                     <div class="border border-dashed border-neutral-800 p-8 rounded-lg flex flex-col items-center">
                          <span class="text-4xl opacity-20 mb-2">∅</span>
-                        <span class="text-[10px] tracking-[0.2em] font-bold uppercase">NO DATA AVAILABLE</span>
-                        <span class="text-[9px] mt-1">Generate a draft or enter edit mode</span>
+                        <span class="text-[10px] tracking-[0.2em] font-bold uppercase">{{ texts.NO_DATA }}</span>
+                        <span class="text-[9px] mt-1">{{ texts.NO_DATA_DESC }}</span>
                     </div>
                 </div>
             </div>
@@ -287,12 +289,12 @@ const handleGenerateDraft = async () => {
         <div class="px-4 py-2 bg-[#05080a] border-t border-white/5 text-[9px] font-mono text-neutral-600 flex justify-between uppercase tracking-widest">
             <div class="flex items-center gap-4">
                 <span>Ln 1, Col 1</span>
-                <span>{{ isEditing ? 'MODE: INSERT' : 'MODE: VIEW' }}</span>
+                <span>{{ isEditing ? texts.MODE_INSERT : texts.MODE_VIEW }}</span>
             </div>
             <div class="flex items-center gap-4">
-                <span>{{ localContent.length }} Chars</span>
+                <span>{{ localContent.length }} {{ texts.CHARS }}</span>
                 <span>UTF-8</span>
-                <span>Markdown</span>
+                <span>{{ texts.MARKDOWN }}</span>
             </div>
         </div>
     </div>

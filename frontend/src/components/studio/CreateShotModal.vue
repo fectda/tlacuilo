@@ -1,6 +1,10 @@
 <script setup>
 import { ref, computed, defineEmits } from 'vue'
 import { SHOT_TYPES, ATMOSPHERES } from '../../constants/studio'
+import { UI_TEXTS } from '../../constants/uiTexts'
+
+const texts = UI_TEXTS.CREATE_SHOT_MODAL
+const commonTexts = UI_TEXTS.COMMON
 
 const emit = defineEmits(['close', 'submit'])
 
@@ -34,7 +38,7 @@ const handleSubmit = () => {
             <div class="flex items-center justify-between px-6 py-4 border-b border-white/10">
                 <div class="flex items-center gap-3">
                     <div class="w-1.5 h-4 bg-cyan-500"></div>
-                    <h2 class="text-[11px] font-black tracking-[0.3em] uppercase text-cyan-400">New Shot Slot</h2>
+                    <h2 class="text-[11px] font-black tracking-[0.3em] uppercase text-cyan-400">{{ texts.TITLE }}</h2>
                 </div>
                 <button @click="emit('close')" class="text-neutral-600 hover:text-white text-sm transition-colors">✕</button>
             </div>
@@ -43,39 +47,39 @@ const handleSubmit = () => {
             <div class="p-6 space-y-5">
                 <!-- Title -->
                 <div class="space-y-1.5">
-                    <label class="text-[9px] uppercase tracking-widest text-neutral-500 font-bold">Title <span class="text-red-500">*</span></label>
+                    <label class="text-[9px] uppercase tracking-widest text-neutral-500 font-bold">{{ texts.LABEL_TITLE }} <span class="text-red-500">*</span></label>
                     <input
                         v-model="title"
-                        placeholder="e.g. PCM5102A DAC chip close-up"
+                        :placeholder="texts.PLACEHOLDER_TITLE"
                         class="w-full bg-black border border-white/10 px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500/50 font-mono"
                     />
                 </div>
 
                 <!-- Focus / Protagonist -->
                 <div class="space-y-1.5">
-                    <label class="text-[9px] uppercase tracking-widest text-neutral-500 font-bold">Protagonist <span class="text-red-500">*</span></label>
+                    <label class="text-[9px] uppercase tracking-widest text-neutral-500 font-bold">{{ texts.LABEL_PROTAGONIST }} <span class="text-red-500">*</span></label>
                     <input
                         v-model="focus"
-                        placeholder="Single component that commands the frame..."
+                        :placeholder="texts.PLACEHOLDER_PROTAGONIST"
                         class="w-full bg-black border border-white/10 px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500/50 font-mono"
                     />
-                    <p class="text-[8px] text-neutral-700">El único sujeto físico en cuadro (ej. "press-fit entre PCB y carcasa")</p>
+                    <p class="text-[8px] text-neutral-700">{{ texts.PROTAGONIST_HELP }}</p>
                 </div>
 
                 <!-- Description -->
                 <div class="space-y-1.5">
-                    <label class="text-[9px] uppercase tracking-widest text-neutral-500 font-bold">Description <span class="text-red-500">*</span></label>
+                    <label class="text-[9px] uppercase tracking-widest text-neutral-500 font-bold">{{ texts.LABEL_DESCRIPTION }} <span class="text-red-500">*</span></label>
                     <textarea
                         v-model="description"
                         rows="2"
-                        placeholder="Technical framing description..."
+                        :placeholder="texts.PLACEHOLDER_DESCRIPTION"
                         class="w-full bg-black border border-white/10 px-3 py-2 text-xs text-white focus:outline-none focus:border-cyan-500/50 font-mono resize-none"
                     ></textarea>
                 </div>
 
                 <!-- Type -->                
                 <div class="space-y-2">
-                    <label class="text-[9px] uppercase tracking-widest text-neutral-500 font-bold">Type</label>
+                    <label class="text-[9px] uppercase tracking-widest text-neutral-500 font-bold">{{ texts.LABEL_TYPE }}</label>
                     <div class="space-y-1">
                         <button
                             v-for="t in types" :key="t.value"
@@ -102,7 +106,7 @@ const handleSubmit = () => {
 
                 <!-- Atmosphere -->
                 <div class="space-y-2">
-                    <label class="text-[9px] uppercase tracking-widest text-neutral-500 font-bold">Atmosphere <span class="text-red-500">*</span></label>
+                    <label class="text-[9px] uppercase tracking-widest text-neutral-500 font-bold">{{ texts.LABEL_ATMOSPHERE }} <span class="text-red-500">*</span></label>
                     <div class="space-y-1">
                         <button
                             v-for="a in atmospheres" :key="a.value"
@@ -131,14 +135,14 @@ const handleSubmit = () => {
 
             <div class="px-6 pb-5 flex gap-3 justify-end">
                 <button @click="emit('close')" class="text-[10px] border border-white/10 text-neutral-500 hover:text-white px-4 py-2 transition-all uppercase tracking-widest">
-                    Cancel
+                    {{ commonTexts.CANCEL }}
                 </button>
                 <button
                     @click="handleSubmit"
                     :disabled="!isValid"
                     class="text-[10px] bg-white text-black hover:bg-neutral-200 px-4 py-2 transition-all uppercase tracking-widest font-black disabled:opacity-30 disabled:cursor-not-allowed"
                 >
-                    Create Shot
+                    {{ texts.BTN_CREATE }}
                 </button>
             </div>
         </div>

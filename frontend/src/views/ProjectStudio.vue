@@ -6,6 +6,10 @@ import { useProjectStore } from '../stores/project'
 import ShotCard from '../components/studio/ShotCard.vue'
 import CreateShotModal from '../components/studio/CreateShotModal.vue'
 import ShotDetailPanel from '../components/studio/ShotDetailPanel.vue'
+import { UI_TEXTS } from '../constants/uiTexts'
+
+const texts = { ...UI_TEXTS.PROJECT_COMMON, ...UI_TEXTS.PROJECT_STUDIO }
+const commonTexts = UI_TEXTS.COMMON
 
 const route = useRoute()
 const studioStore = useStudioStore()
@@ -24,7 +28,7 @@ const handleSelectShot = async (shot) => {
 }
 
 const handleDeleteShot = async (shotId) => {
-    if (confirm('¿Eliminar este shot permanentemente?')) {
+    if (confirm(texts.CONFIRM_DELETE_SHOT)) {
         await studioStore.deleteShot(collection, slug, shotId)
     }
 }
@@ -37,6 +41,12 @@ const handleCreateShot = async (payload) => {
     await studioStore.createShot(collection, slug, payload)
     showCreateModal.value = false
 }
+
+const handleGlobalPromotion = async () => {
+    if (confirm(texts.CONFIRM_PUBLISH)) {
+        await projectStore.publishProject(collection, slug)
+    }
+}
 </script>
 
 <template>
@@ -47,14 +57,14 @@ const handleCreateShot = async (payload) => {
             <!-- Left: Navigation -->
             <div class="flex items-center gap-4">
                 <router-link :to="`/project/${collection}/${slug}`" class="text-neutral-500 hover:text-white transition-colors text-xs">
-                    &lt; VOLVER
+                    &lt; {{ texts.BACK }}
                 </router-link>
                 <div class="h-4 w-[1px] bg-white/10"></div>
                 <h1 class="text-sm font-bold tracking-widest uppercase truncate max-w-[200px]">
                     {{ projectStore.currentProject?.name || slug }}
                 </h1>
                 <span class="bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-3 py-1 text-[10px] tracking-[0.2em] uppercase font-black">
-                    IXTLI STUDIO
+                    {{ texts.TITLE }}
                 </span>
             </div>
 
@@ -66,20 +76,26 @@ const handleCreateShot = async (payload) => {
             </div>
 
             <!-- Right: Actions -->
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2">
                 <button
                     @click="showCreateModal = true"
                     class="text-[10px] border border-white/10 text-neutral-400 hover:text-white hover:border-white/30 px-4 py-1.5 transition-all uppercase tracking-[0.2em] font-black"
                 >
-                    + NEW SHOT
+                    {{ texts.NEW_SHOT }}
                 </button>
                 <button
                     @click="handleSuggest"
                     :disabled="studioStore.isSuggesting"
-                    class="text-[10px] bg-cyan-600 text-white hover:bg-cyan-500 px-4 py-1.5 transition-all uppercase tracking-[0.2em] font-black disabled:opacity-40 disabled:cursor-not-allowed"
+                    class="text-[10px] bg-cyan-600/20 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-600/30 px-4 py-1.5 transition-all uppercase tracking-[0.2em] font-black disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                    <span v-if="studioStore.isSuggesting">ANALYZING...</span>
-                    <span v-else>✦ SUGGEST WITH AI</span>
+                    <span v-if="studioStore.isSuggesting">{{ texts.ANALYZING }}</span>
+                    <span v-else>{{ texts.SUGGEST_AI }}</span>
+                </button>
+                <div class="h-4 w-[1px] bg-white/10 mx-1"></div>
+                <button @click="handleGlobalPromotion"
+                        class="text-[10px] bg-amber-600/20 text-amber-500 border border-amber-500/30 hover:bg-amber-600/30 px-4 py-1.5 transition-all uppercase tracking-[0.2em] font-black"
+                        :title="texts.PUBLISH_TOOLTIP">
+                    {{ texts.PUBLISH }}
                 </button>
             </div>
         </div>
@@ -92,8 +108,8 @@ const handleCreateShot = async (payload) => {
                 <!-- Panel Header -->
                 <div class="px-5 py-3 border-b border-white/5 bg-[#070707]">
                     <div class="flex items-center justify-between">
-                        <span class="text-[9px] font-black tracking-[0.3em] uppercase text-neutral-500">Shot List</span>
-                        <span class="text-[9px] text-neutral-700">{{ studioStore.shots.length }} shots</span>
+                        <span class="text-[9px] font-black tracking-[0.3em] uppercase text-neutral-500">{{ texts.SHOT_LIST }}</span>
+                        <span class="text-[9px] text-neutral-700">{{ studioStore.shots.length }} {{ commonTexts.SHOTS || 'shots' }}</span>
                     </div>
                 </div>
 
@@ -111,14 +127,14 @@ const handleCreateShot = async (payload) => {
                         <div class="flex gap-1.5">
                             <div v-for="i in 3" :key="i" class="w-1.5 h-1.5 bg-cyan-500/50 rounded-full animate-bounce" :style="{ animationDelay: (i*0.2)+'s' }"></div>
                         </div>
-                        <p class="text-[9px] text-cyan-500/70 uppercase tracking-widest">Tlacuilo Ixtli analyzing document...</p>
+                        <p class="text-[9px] text-cyan-500/70 uppercase tracking-widest">{{ texts.ANALYZING_DOC }}</p>
                     </div>
 
                     <!-- Empty state -->
                     <div v-else-if="!studioStore.shots.length" class="flex flex-col items-center justify-center py-16 text-neutral-700 text-center px-4 space-y-3">
                         <span class="text-3xl opacity-20">📷</span>
-                        <p class="text-[9px] uppercase tracking-widest">No shots yet</p>
-                        <p class="text-[8px] text-neutral-800">Use "Suggest with AI" to auto-generate a shot list from the document, or create one manually.</p>
+                        <p class="text-[9px] uppercase tracking-widest">{{ texts.NO_SHOTS }}</p>
+                        <p class="text-[8px] text-neutral-800">{{ texts.NO_SHOTS_DESC }}</p>
                     </div>
 
                     <!-- Shot cards -->

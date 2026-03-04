@@ -6,6 +6,9 @@ import { useChatStore } from '../stores/chat'
 import ChatArea from '../components/digital/ChatArea.vue'
 import TranslationStudio from '../components/digital/TranslationStudio.vue'
 import DraftPreview from '../components/digital/DraftPreview.vue'
+import { UI_TEXTS } from '../constants/uiTexts'
+
+const texts = { ...UI_TEXTS.PROJECT_COMMON, ...UI_TEXTS.PROJECT_DIGITAL }
 
 const route = useRoute()
 const projectStore = useProjectStore()
@@ -63,19 +66,19 @@ const toggleViewMode = async (mode) => {
 
 const handleGlobalPromotion = async () => {
     // Re-verify Section D status if needed
-     if (confirm('¿Ejecutar PROMOCIÓN GLOBAL? (Git Ops: Commit & Push al repositorio remoto)')) {
-        await projectStore.publishGlobal(collection, slug)
+     if (confirm(texts.CONFIRM_PUBLISH)) {
+        await projectStore.publishProject(collection, slug)
     }
 }
 
 const handleRevert = async () => {
-    if (confirm('¿Estás seguro de descartar todos los cambios locales y volver a la versión del Portafolio?')) {
+    if (confirm(texts.CONFIRM_REVERT)) {
         await projectStore.revertProject(collection, slug)
     }
 }
 
 const handlePublish = async () => {
-    if (confirm('¿Deseas promover esta copia de trabajo al Portafolio?')) {
+    if (confirm(texts.CONFIRM_PROMOTE)) {
         await projectStore.promoteProject(collection, slug)
     }
 }
@@ -110,7 +113,7 @@ watch(() => projectStore.isWorkingCopyActive, (val) => {
             <!-- Left: Navigation & Title -->
             <div class="flex items-center gap-4">
                 <router-link to="/" class="text-neutral-500 hover:text-white transition-colors">
-                    &lt; VOLVER
+                    &lt; {{ texts.BACK }}
                 </router-link>
                 <div class="h-4 w-[1px] bg-white/10"></div>
                 <h1 class="text-sm font-bold tracking-widest uppercase truncate max-w-[200px]">
@@ -121,11 +124,11 @@ watch(() => projectStore.isWorkingCopyActive, (val) => {
                 <div class="flex items-center gap-2 cursor-pointer group" @click="toggleViewMode(viewMode === 'original' ? 'translation' : 'original')">
                     <span v-if="viewMode === 'original'"
                           class="bg-amber-500/10 text-amber-500 border border-amber-500/20 px-3 py-1 text-[10px] tracking-[0.2em] uppercase font-black transition-all group-hover:bg-amber-500/20 group-hover:text-amber-400">
-                        EDICIÓN
+                        {{ texts.MODE_EDIT }}
                     </span>
                     <span v-else 
                           class="bg-blue-500/10 text-blue-500 border border-blue-500/20 px-3 py-1 text-[10px] tracking-[0.2em] uppercase font-black transition-all group-hover:bg-blue-500/20 group-hover:text-blue-400">
-                        TRADUCCIÓN
+                        {{ texts.MODE_TRANSLATE }}
                     </span>
                 </div>
 
@@ -134,7 +137,7 @@ watch(() => projectStore.isWorkingCopyActive, (val) => {
                     :to="`/project/${collection}/${slug}/studio`"
                     class="bg-cyan-500/5 text-cyan-600 border border-cyan-500/10 px-3 py-1 text-[10px] tracking-[0.2em] uppercase font-black hover:bg-cyan-500/10 hover:text-cyan-400 transition-all"
                 >
-                    ⌀ IXTLI
+                    {{ texts.STUDIO_LINK }}
                 </router-link>
             </div>
 
@@ -146,17 +149,22 @@ watch(() => projectStore.isWorkingCopyActive, (val) => {
             </div>
 
             <!-- Right: Contextual Actions -->
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2">
                 <template v-if="projectStore.isWorkingCopyActive">
                     <button @click="handleRevert"
                             class="text-[10px] border border-red-500/50 text-red-500 hover:bg-red-500/10 px-4 py-1.5 transition-all uppercase tracking-[0.2em] font-black">
-                        DESCARTAR
+                        {{ texts.DISCARD }}
                     </button>
                     <button @click="handlePublish"
                             class="text-[10px] bg-white text-black hover:bg-neutral-200 px-4 py-1.5 transition-all uppercase tracking-[0.2em] font-black shadow-xl">
-                        PROMOVER
+                        {{ texts.PROMOTE }}
                     </button>
                 </template>
+                <button @click="handleGlobalPromotion"
+                        class="text-[10px] bg-amber-600/20 text-amber-500 border border-amber-500/30 hover:bg-amber-600/30 px-4 py-1.5 transition-all uppercase tracking-[0.2em] font-black z-10"
+                        :title="texts.PUBLISH_TOOLTIP">
+                    {{ texts.PUBLISH }}
+                </button>
             </div>
         </div>
 

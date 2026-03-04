@@ -151,4 +151,17 @@ export default {
             throw error;
         }
     },
+    /**
+     * Publish project to remote portfolio (Git Ops).
+     */
+    async publishProject(collection, slug) {
+        try {
+            const response = await api.post(`/${collection}/${slug}/publish`);
+            return response.data;
+        } catch (error) {
+            console.error('Error publishing project:', error);
+            throw error;
+        }
+    },
 };
+

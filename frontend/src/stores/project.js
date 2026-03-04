@@ -173,6 +173,20 @@ export const useProjectStore = defineStore('project', () => {
         return currentProject.value?.is_working_copy_active || false
     })
 
+    const publishProject = async (collection, slug) => {
+        try {
+            const result = await ProjectService.publishProject(collection, slug)
+            if (currentProject.value) {
+                currentProject.value.doc_status = 'publicado'
+            }
+            return result
+        } catch (e) {
+            console.error('Publish error:', e)
+            error.value = e.response?.data?.detail || e.message
+            throw e
+        }
+    }
+
     return {
         projects,
         currentProject,
@@ -187,10 +201,10 @@ export const useProjectStore = defineStore('project', () => {
         persistContent,
         persistTranslation,
         promoteProject,
+        publishProject,
         forgetProject,
         resurrectProject,
         revertProject,
-        promoteProject,
         totalProjects,
         isWorkingCopyActive
     }

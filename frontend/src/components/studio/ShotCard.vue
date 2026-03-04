@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { SHOT_STATUS_CONFIG, ATMOSPHERE_STYLES, SHOT_TYPES } from '../../constants/studio'
+import { UI_TEXTS } from '../../constants/uiTexts'
 
 const props = defineProps({
     shot: { type: Object, required: true },
@@ -60,7 +61,7 @@ const atm = computed(() => atmosphereStyle[props.shot.atmosphere] || null)
                 {{ shot.atmosphere }}
             </span>
             <span class="text-[9px] text-neutral-400 uppercase tracking-widest">{{ shot.type }}</span>
-            <span v-if="shot.has_original" class="ml-auto text-[8px] text-emerald-500/80 font-bold">IMG ✓</span>
+            <span v-if="shot.has_original" class="ml-auto text-[8px] text-emerald-500/80 font-bold">{{ UI_TEXTS.COMMON.IMAGE_PRESENT }}</span>
         </div>
     </div>
 </template>

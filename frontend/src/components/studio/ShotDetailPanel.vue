@@ -3,6 +3,10 @@ import { ref, computed, watch } from 'vue'
 import { useStudioStore } from '../../stores/studio'
 import StudioService from '../../services/StudioService'
 import { SHOT_TYPES, ATMOSPHERES, ATMOSPHERE_STYLES } from '../../constants/studio'
+import { UI_TEXTS } from '../../constants/uiTexts'
+
+const texts = UI_TEXTS.SHOT_DETAIL
+const commonTexts = UI_TEXTS.COMMON
 
 const props = defineProps({
     collection: { type: String, required: true },
@@ -107,12 +111,7 @@ const originalUrl = computed(() =>
 )
 
 // Status
-const statusLabel = {
-    pending_upload: 'Pending Upload',
-    queued: 'Queued in ComfyUI…',
-    generated: 'Generated — awaiting approval',
-    approved: 'Approved ✓',
-}
+const statusLabel = texts.STATUS
 
 // Edit metadata
 const startEdit = () => {
@@ -155,7 +154,7 @@ const handleApprove = async () => {
 
 // Delete Variant
 const handleDeleteVariant = async (comflyId) => {
-    if (confirm('¿Eliminar esta variante permanentemente?')) {
+    if (confirm(texts.CONFIRM_DELETE_VARIANT)) {
         await studioStore.deleteImage(props.collection, props.slug, shot.value.shot_id, comflyId)
         if (selectedComflyId.value === comflyId) selectedComflyId.value = null
     }
@@ -168,7 +167,7 @@ const handleDeleteVariant = async (comflyId) => {
         <!-- Empty state -->
         <div v-if="!shot" class="flex-1 flex flex-col items-center justify-center gap-3">
             <div class="text-5xl opacity-10 select-none">⌀</div>
-            <p class="text-[10px] uppercase tracking-[0.3em] text-neutral-600">Select a shot</p>
+            <p class="text-[10px] uppercase tracking-[0.3em] text-neutral-600">{{ texts.EMPTY_STATE }}</p>
         </div>
 
         <template v-else>
@@ -184,7 +183,7 @@ const handleDeleteVariant = async (comflyId) => {
                         @click="startPolling"
                         class="px-2 py-1 bg-amber-500/10 border border-amber-500/40 text-amber-500 text-[9px] font-black uppercase tracking-widest hover:bg-amber-500 hover:text-black transition-all"
                     >
-                        ↻ Resume Polling
+                        ↻ {{ texts.RESUME_POLLING }}
                     </button>
 
                     <button
@@ -209,29 +208,29 @@ const handleDeleteVariant = async (comflyId) => {
                     <!-- ── Metadata ───────────────────────────────────── -->
                     <section class="space-y-3">
                         <div class="flex items-center justify-between">
-                            <p class="text-[9px] text-neutral-300 font-black uppercase tracking-[0.25em]">Metadata</p>
+                            <p class="text-[9px] text-neutral-300 font-black uppercase tracking-[0.25em]">{{ texts.SECTION_METADATA }}</p>
                             <button
                                 v-if="!isEditingMeta"
                                 @click="startEdit"
                                 class="text-[9px] font-black uppercase tracking-widest px-3 py-1 border border-white/20 text-white hover:bg-white hover:text-black transition-all"
                             >
-                                Edit
+                                {{ texts.BTN_EDIT }}
                             </button>
                         </div>
 
                         <!-- Display -->
                         <div v-show="!isEditingMeta" class="border border-white/10 divide-y divide-white/5">
                             <div class="p-3 space-y-0.5">
-                                <p class="text-[8px] text-neutral-500 uppercase tracking-wider">Title</p>
+                                <p class="text-[8px] text-neutral-500 uppercase tracking-wider">{{ texts.LABEL_TITLE }}</p>
                                 <p class="text-[11px] text-white leading-relaxed font-bold">{{ shot.title || '—' }}</p>
                             </div>
                             <div class="grid grid-cols-2 divide-x divide-white/5">
                                 <div class="p-3 space-y-0.5">
-                                    <p class="text-[8px] text-neutral-500 uppercase tracking-wider">Type</p>
+                                    <p class="text-[8px] text-neutral-500 uppercase tracking-wider">{{ texts.LABEL_TYPE }}</p>
                                     <p class="text-[10px] text-neutral-200 uppercase tracking-widest">{{ shot.type || '—' }}</p>
                                 </div>
                                 <div class="p-3 space-y-0.5">
-                                    <p class="text-[8px] text-neutral-500 uppercase tracking-wider">Atmosphere</p>
+                                    <p class="text-[8px] text-neutral-500 uppercase tracking-wider">{{ texts.LABEL_ATMOSPHERE }}</p>
                                     <div class="flex items-center gap-2">
                                         <div class="w-1.5 h-1.5 rounded-full" :style="{ background: accent }"></div>
                                         <p class="text-[10px] font-bold uppercase" :style="{ color: accent }">{{ shot.atmosphere || '—' }}</p>
@@ -239,11 +238,11 @@ const handleDeleteVariant = async (comflyId) => {
                                 </div>
                             </div>
                             <div class="p-3 space-y-0.5">
-                                <p class="text-[8px] text-neutral-500 uppercase tracking-wider">Description</p>
+                                <p class="text-[8px] text-neutral-500 uppercase tracking-wider">{{ texts.LABEL_DESCRIPTION }}</p>
                                 <p class="text-[11px] text-neutral-200 leading-relaxed">{{ shot.description || '—' }}</p>
                             </div>
                             <div class="p-3 space-y-0.5">
-                                <p class="text-[8px] text-neutral-500 uppercase tracking-wider">Protagonist / Focus</p>
+                                <p class="text-[8px] text-neutral-500 uppercase tracking-wider">{{ texts.LABEL_PROTAGONIST }}</p>
                                 <p class="text-[11px] text-neutral-200 leading-relaxed">{{ shot.focus || '—' }}</p>
                             </div>
                         </div>
@@ -251,14 +250,14 @@ const handleDeleteVariant = async (comflyId) => {
                         <!-- Edit form -->
                         <div v-show="isEditingMeta" class="border border-white/20 divide-y divide-white/10">
                             <div class="p-3 space-y-1">
-                                <p class="text-[8px] text-neutral-400 uppercase tracking-wider">Title</p>
+                                <p class="text-[8px] text-neutral-400 uppercase tracking-wider">{{ texts.LABEL_TITLE }}</p>
                                 <input v-model="metaEdit.title"
                                     name="shot_title_edit"
                                     autocomplete="off"
                                     class="w-full bg-transparent text-[11px] text-white focus:outline-none border-b border-white/20 focus:border-white pb-1" />
                             </div>
                             <div class="p-3 space-y-1">
-                                <p class="text-[8px] text-neutral-400 uppercase tracking-wider">Description</p>
+                                <p class="text-[8px] text-neutral-400 uppercase tracking-wider">{{ texts.LABEL_DESCRIPTION }}</p>
                                 <textarea v-model="metaEdit.description" rows="2"
                                     name="shot_desc_edit"
                                     autocomplete="off"
@@ -266,7 +265,7 @@ const handleDeleteVariant = async (comflyId) => {
                                     class="w-full bg-transparent text-[11px] text-white focus:outline-none resize-none border-b border-white/20 focus:border-white pb-1"></textarea>
                             </div>
                             <div class="p-3 space-y-1">
-                                <p class="text-[8px] text-neutral-400 uppercase tracking-wider">Focus</p>
+                                <p class="text-[8px] text-neutral-400 uppercase tracking-wider">{{ texts.LABEL_PROTAGONIST }}</p>
                                 <input v-model="metaEdit.focus"
                                     name="shot_focus_edit"
                                     autocomplete="off"
@@ -275,7 +274,7 @@ const handleDeleteVariant = async (comflyId) => {
                             <div class="p-3 bg-black/10">
                                 <div class="grid grid-cols-2 gap-4">
                                     <div class="space-y-2">
-                                        <p class="text-[8px] text-neutral-400 uppercase tracking-wider">Type</p>
+                                        <p class="text-[8px] text-neutral-400 uppercase tracking-wider">{{ texts.LABEL_TYPE }}</p>
                                         <div class="space-y-1">
                                             <button
                                                 v-for="t in types" :key="t.value"
@@ -301,7 +300,7 @@ const handleDeleteVariant = async (comflyId) => {
                                     </div>
 
                                     <div class="space-y-2">
-                                        <p class="text-[8px] text-neutral-400 uppercase tracking-wider">Atmosphere</p>
+                                        <p class="text-[8px] text-neutral-400 uppercase tracking-wider">{{ texts.LABEL_ATMOSPHERE }}</p>
                                         <div class="space-y-1">
                                             <button
                                                 v-for="a in atmospheres" :key="a.value"
@@ -328,21 +327,21 @@ const handleDeleteVariant = async (comflyId) => {
                                 </div>
                             </div>
                             <div class="p-3 flex gap-2">
-                                <button @click="cancelEdit"
-                                    class="text-[9px] font-black uppercase tracking-widest px-3 py-1.5 border border-white/20 text-neutral-400 hover:text-white transition-all">
-                                    Cancel
-                                </button>
-                                <button @click="saveEdit"
-                                    class="text-[9px] font-black uppercase tracking-widest px-4 py-1.5 bg-white text-black hover:bg-neutral-200 transition-all">
-                                    Save
-                                </button>
+                                    <button @click="cancelEdit"
+                                        class="text-[9px] font-black uppercase tracking-widest px-3 py-1.5 border border-white/20 text-neutral-400 hover:text-white transition-all">
+                                        {{ commonTexts.CANCEL }}
+                                    </button>
+                                    <button @click="saveEdit"
+                                        class="text-[9px] font-black uppercase tracking-widest px-4 py-1.5 bg-white text-black hover:bg-neutral-200 transition-all">
+                                        {{ texts.BTN_SAVE }}
+                                    </button>
                             </div>
                         </div>
                     </section>
 
                     <!-- ── Visual Prompt ──────────────────────────────── -->
                     <section v-if="shot.visual_prompt" class="space-y-2">
-                        <p class="text-[9px] text-neutral-300 font-black uppercase tracking-[0.25em]">Visual Prompt</p>
+                        <p class="text-[9px] text-neutral-300 font-black uppercase tracking-[0.25em]">{{ texts.LABEL_VISUAL_PROMPT }}</p>
                         <div class="border-l-2 pl-4 py-1" :style="{ borderColor: accent }">
                             <p class="text-[10px] leading-relaxed" style="color: rgba(200,240,255,0.7)">{{ shot.visual_prompt }}</p>
                         </div>
@@ -350,7 +349,7 @@ const handleDeleteVariant = async (comflyId) => {
 
                     <!-- ── Reference Photo (Only if no variants) ───────────────────────────── -->
                     <section v-if="originalUrl && (!shot.images || !shot.images.length)" class="space-y-2">
-                        <p class="text-[9px] text-neutral-300 font-black uppercase tracking-[0.25em]">Reference Photo</p>
+                        <p class="text-[9px] text-neutral-300 font-black uppercase tracking-[0.25em]">{{ texts.LABEL_REF_PHOTO }}</p>
                         <div class="aspect-[3/2] bg-black border border-white/10 overflow-hidden">
                             <img :src="originalUrl" alt="original" class="w-full h-full object-cover" />
                         </div>
@@ -358,7 +357,7 @@ const handleDeleteVariant = async (comflyId) => {
 
                     <!-- ── Workspace Gallery ────────────────────────────── -->
                     <section v-if="shot.images && shot.images.length" class="space-y-3">
-                        <p class="text-[9px] text-neutral-300 font-black uppercase tracking-[0.25em]">Generated Variants</p>
+                        <p class="text-[9px] text-neutral-300 font-black uppercase tracking-[0.25em]">{{ texts.LABEL_GEN_VARIANTS }}</p>
                         <div class="grid grid-cols-2 gap-4">
                             <div
                                 v-for="img in shot.images"
@@ -371,7 +370,7 @@ const handleDeleteVariant = async (comflyId) => {
                                 <!-- Loading state (Always shows if queued, regardless of selection) -->
                                 <div v-if="img.status === 'queue'" class="absolute inset-0 flex flex-col items-center justify-center gap-2 z-30 bg-black/60 backdrop-blur-[2px]">
                                     <div class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></div>
-                                    <span class="text-[8px] text-amber-500 font-black tracking-widest uppercase">Processing</span>
+                                    <span class="text-[8px] text-amber-500 font-black tracking-widest uppercase">{{ texts.LABEL_PROCESSING }}</span>
                                 </div>
 
                                 <!-- View Layer (Image) -->
@@ -396,13 +395,13 @@ const handleDeleteVariant = async (comflyId) => {
                                     <!-- Header -->
                                     <div class="relative flex items-center justify-between px-3 py-2 border-b border-white/5 shrink-0 z-10 bg-black/40">
                                         <span class="text-[8px] text-neutral-500 font-bold uppercase tracking-widest">{{ img.id.split('-')[0] }}</span>
-                                        <button @click.stop="selectedComflyId = null" class="text-neutral-500 hover:text-white text-[9px] font-black uppercase">✕ CLOSE</button>
+                                        <button @click.stop="selectedComflyId = null" class="text-neutral-500 hover:text-white text-[9px] font-black uppercase">{{ texts.BTN_CLOSE }}</button>
                                     </div>
 
                                     <!-- Body: Correction -->
                                     <div class="relative flex-1 p-3 flex flex-col min-h-0 space-y-2 overflow-y-auto custom-scrollbar z-10">
                                         <div class="space-y-2 flex-1 flex flex-col pt-1">
-                                            <p class="text-[9px] text-neutral-300 font-black uppercase tracking-[0.2em]">Refinement Instructions</p>
+                                            <p class="text-[9px] text-neutral-300 font-black uppercase tracking-[0.2em]">{{ texts.LABEL_REFINEMENT }}</p>
                                             <textarea
                                                 v-model="correctionText" rows="2"
                                                 autocomplete="off"
@@ -418,7 +417,7 @@ const handleDeleteVariant = async (comflyId) => {
                                                 class="w-full py-2.5 text-black text-[10px] font-black uppercase tracking-[0.25em] transition-all disabled:opacity-20 disabled:grayscale shrink-0 shadow-[0_4px_0_0_rgba(0,0,0,0.3)] active:translate-y-0.5 active:shadow-none"
                                                 :style="{ background: accent }"
                                             >
-                                                ✦ REGENERATE VARIANT
+                                                {{ texts.BTN_REGENERATE }}
                                             </button>
                                         </div>
                                     </div>
@@ -438,14 +437,14 @@ const handleDeleteVariant = async (comflyId) => {
                                             @click="handleApprove"
                                             class="flex-1 py-2 bg-emerald-950/20 text-emerald-500 text-[8px] font-black uppercase tracking-widest border-r border-white/10 hover:bg-emerald-600 hover:text-white transition-all"
                                         >
-                                            ✓ Approve
+                                            ✓ {{ texts.BTN_APPROVE }}
                                         </button>
 
                                         <button
                                             @click="handleDeleteVariant(img.id)"
                                             class="flex-1 py-2 text-neutral-600 hover:text-red-500 text-[8px] font-black uppercase tracking-widest hover:bg-red-950/30 transition-all"
                                         >
-                                            ✕ Discard
+                                            ✕ {{ texts.DISCARD }}
                                         </button>
                                     </div>
                                 </div>
@@ -475,7 +474,7 @@ const handleDeleteVariant = async (comflyId) => {
                                 studioStore.isGenerating ? 'border-white/10 bg-white/5 text-neutral-500' : 'border-white/25 text-white hover:bg-white/5'
                             ]"
                         >
-                            {{ studioStore.isGenerating ? 'PROCESANDO…' : (shot.has_original ? '↺ RE-UPLOAD & RESTART' : '↑ UPLOAD & GENERATE') }}
+                            {{ studioStore.isGenerating ? texts.LABEL_PROCESSING + '…' : (shot.has_original ? texts.RE_UPLOAD_RESTART : texts.UPLOAD_GENERATE) }}
                         </button>
                     </section>
 

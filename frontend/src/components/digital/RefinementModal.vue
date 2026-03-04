@@ -1,5 +1,9 @@
 <script setup>
 import { ref, onMounted } from 'vue'
+import { UI_TEXTS } from '../../constants/uiTexts'
+
+const texts = UI_TEXTS.REFINEMENT_MODAL
+const commonTexts = UI_TEXTS.COMMON
 
 const props = defineProps({
     isOpen: Boolean,
@@ -43,7 +47,7 @@ const handleCancel = () => {
             <!-- Body -->
             <div class="p-6">
                 <p class="text-[11px] text-neutral-400 font-mono mb-4 leading-relaxed">
-                    Especifique detalles técnicos o de tono para que el <span class="text-blue-400">Bilingual Scribe</span> ajuste la versión en inglés.
+                    {{ texts.HELP_TEXT.split('Bilingual Scribe')[0] }}<span class="text-blue-400">Bilingual Scribe</span>{{ texts.HELP_TEXT.split('Bilingual Scribe')[1] }}
                 </p>
                 <textarea 
                     ref="textareaRef"
@@ -54,7 +58,7 @@ const handleCancel = () => {
                     class="w-full h-32 bg-black border border-white/10 p-4 text-sm text-blue-200/80 focus:outline-none focus:border-blue-500/50 resize-none font-mono selection:bg-blue-500 selection:text-white"
                 ></textarea>
                 <div class="mt-2 text-[9px] text-neutral-600 uppercase tracking-widest text-right">
-                    Cmd/Ctrl + Enter para enviar
+                    {{ texts.SUBMIT_HINT }}
                 </div>
             </div>
 
@@ -63,12 +67,12 @@ const handleCancel = () => {
                 <button 
                     @click="handleCancel"
                     class="px-4 py-2 text-[10px] uppercase font-bold tracking-widest text-neutral-500 hover:text-white transition-colors">
-                    CANCELAR
+                    {{ commonTexts.CANCEL }}
                 </button>
                 <button 
                     @click="handleConfirm"
                     class="px-6 py-2 text-[10px] uppercase font-bold tracking-widest bg-blue-600 text-white hover:bg-blue-500 transition-all shadow-[0_0_15px_rgba(37,99,235,0.2)]">
-                    REFINAR PROBABLE
+                    {{ texts.BTN_REFINE }}
                 </button>
             </div>
         </div>
