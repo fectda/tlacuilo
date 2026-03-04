@@ -185,17 +185,27 @@ const renderMarkdown = (text) => {
                                 <span class="w-1.5 h-1.5 rounded-full" :class="chatStore.isTyping ? 'bg-accent animate-ping' : 'bg-green-500 shadow-glow-success'"></span>
                                 STATUS: {{ chatStore.isTyping ? 'BUSY' : 'READY' }}
                             </span>
-                            <div class="flex items-center gap-4">
-                                <button 
-                                    @click="isMonologueMode = !isMonologueMode"
-                                    class="text-[10px] uppercase tracking-[0.2em] flex items-center gap-2 transition-colors"
-                                    :class="isMonologueMode ? 'text-accent shadow-glow-accent' : 'text-neutral-500 hover:text-white'">
-                                    <span class="w-2 h-2 rounded-sm border" :class="isMonologueMode ? 'bg-accent border-accent' : 'border-neutral-500'"></span>
-                                    MODO MONÓLOGO
-                                </button>
-                                <span class="text-[10px] text-neutral-500 uppercase tracking-[0.2em]">
-                                    MODE: {{ chatStore.mode }}
-                                </span>
+                            <div class="flex items-center gap-3">
+                                <span class="text-[9px] text-neutral-600 uppercase tracking-[0.3em] font-black">CHAT MODE:</span>
+                                <div class="flex items-center bg-black/40 border border-white/5 rounded-sm p-0.5 gap-1">
+                                    <button 
+                                        @click="isMonologueMode = true"
+                                        class="text-[9px] uppercase tracking-[0.2em] px-2 py-0.5 rounded-sm transition-all duration-300 font-black border"
+                                        :class="isMonologueMode 
+                                            ? 'bg-accent/20 text-accent border-accent/40 shadow-glow-accent' 
+                                            : 'text-neutral-700 hover:text-neutral-500 border-transparent'">
+                                        MONOLOGUE
+                                    </button>
+                                    
+                                    <button 
+                                        @click="isMonologueMode = false"
+                                        class="text-[9px] uppercase tracking-[0.2em] px-2 py-0.5 rounded-sm transition-all duration-300 font-black border"
+                                        :class="!isMonologueMode 
+                                            ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40 shadow-glow-cyan' 
+                                            : 'text-neutral-700 hover:text-neutral-500 border-transparent'">
+                                        INTERVIEW
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
