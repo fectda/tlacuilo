@@ -133,6 +133,7 @@ class ContentValidator:
             raise ValueError(message)
     async def orchestrate_full_validation(self, content: str, collection: str, 
                                         repo: Any, llm: Any, prompts: Any, 
+                                        target_language: str = "Spanish",
                                         debug_dir: Optional[Any] = None, 
                                         log_prefix: str = "") -> Optional[str]:
         """High-level orchestration to reduce code duplication in services."""
@@ -143,6 +144,7 @@ class ContentValidator:
             llm_client=llm,
             template_content=template_content,
             prompt_service=prompts,
+            target_language=target_language,
             debug_dir=debug_dir,
             log_prefix=log_prefix
         )
