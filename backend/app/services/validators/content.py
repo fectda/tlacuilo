@@ -5,6 +5,15 @@ from typing import List, Dict, Any, Optional
 
 logger = logging.getLogger(__name__)
 
+# Required frontmatter fields per collection, derived from the Astro content schema.
+# Fields with .optional() are excluded. Fields with .default() ARE included — defaults
+# are a build-time concern for Astro, not an excuse to omit them from the source file.
+COLLECTION_SCHEMAS: Dict[str, List[str]] = {
+    "bits":  ["title", "description", "date", "stack", "status", "progress", "type"],
+    "atoms": ["title", "shortTitle", "description", "date", "stack", "status", "type", "icon"],
+    "mind":  ["title", "description", "date", "status"],
+}
+
 class ContentValidator:
     async def validate_all(self, content: str, collection: Optional[str] = None, 
                            llm_client: Optional[Any] = None, template_content: Optional[str] = None,
@@ -29,15 +38,16 @@ class ContentValidator:
         if not content.strip().startswith("---"): return "Invalid Markdown: Missing frontmatter"
         return None
 
-    def validate_metadata(self, content: str) -> Optional[str]:
-        """Validates required frontmatter keys."""
+    def validate_metadata(self, content: str, collection: str) -> Optional[str]:
+        """Validates required frontmatter keys against the collection schema."""
         try:
             post = frontmatter.loads(content)
-            required_keys = ["title", "description", "draft"]
+            required_keys = COLLECTION_SCHEMAS.get(collection, [])
             missing_keys = [k for k in required_keys if k not in post.metadata]
-            if missing_keys: return f"Missing metadata keys: {missing_keys}"
+            if missing_keys:
+                return f"Missing required fields for '{collection}': {missing_keys}"
         except Exception as e:
-            return f"Metadata validation error: {str(e)}"
+            return f"Frontmatter parse error: {str(e)}"
         return None
 
     async def validate_semantic_structure(self, content: str, collection: str, 

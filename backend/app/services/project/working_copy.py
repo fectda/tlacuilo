@@ -58,8 +58,10 @@ class ProjectWorkingCopyService:
     def save_working_copy(self, collection: str, slug: str, content: str) -> Dict[str, Any]:
         self.cont_validator.ensure_content(content)
         
-        err = self.cont_validator.validate_schema(content, collection)
+        err = self.cont_validator.validate_frontmatter(content)
         if err: raise ValueError(f"Validación estructural fallida: {err}")
+        err = self.cont_validator.validate_metadata(content, collection)
+        if err: raise ValueError(f"Validación de metadatos fallida: {err}")
         
         project_dir = self.repo.get_project_dir(collection, slug)
         self.repo.write_text(project_dir / f"{slug}.md", content)
@@ -92,8 +94,10 @@ class ProjectWorkingCopyService:
 
     def save_translation_copy(self, collection: str, slug: str, content: str):
         self.cont_validator.ensure_content(content)
-        err = self.cont_validator.validate_schema(content, collection)
+        err = self.cont_validator.validate_frontmatter(content)
         if err: raise ValueError(f"Validación estructural: {err}")
+        err = self.cont_validator.validate_metadata(content, collection)
+        if err: raise ValueError(f"Validación de metadatos: {err}")
             
         project_dir = self.repo.get_project_dir(collection, slug)
         self.repo.write_text(project_dir / f"{slug}.en.md", content)
