@@ -12,6 +12,12 @@ El historial de conversación es tu única fuente. Léela completa antes de escr
 
 ---
 
+## IDIOMA
+
+Todo el documento se escribe en **español**. Los títulos del template están en inglés como referencia estructural, pero los H2 y H3 del documento final deben estar en español. Traduce y adapta los títulos al proyecto (ej. "The Challenge" → "El Reto de Fabricación", "Architecture & Specs" → "Materiales y Especificaciones").
+
+---
+
 ## FRONTMATTER
 
 Usa los campos del template como guía. Llénalos con los datos mencionados en el chat. Si un campo no fue discutido, déjalo vacío (`""` o `[]`).
@@ -20,7 +26,7 @@ Usa los campos del template como guía. Llénalos con los datos mencionados en e
 
 ## TONO Y ESTILO
 
-Escribe como alguien que construyó el objeto con sus manos y lo describe sin adornos: honesto, técnico, directo. Si algo se rompió, se quemó o no quedó bien, dilo así. Si el resultado tiene limitaciones reales (fricciones, tolerancias, duración de batería), nómbralas.
+La voz de este documento es la del usuario en el chat: directa, honesta, sin pulir. Si algo se rompió, se quemó o no quedó bien, dilo así. Si el usuario expresó frustración con un material o herramienta, escríbelo con esa misma emoción — no lo suavices. Si el resultado tiene limitaciones reales (fricciones, tolerancias, duración de batería), nómbralas sin dudar.
 
 **Prosa como base**: Usa párrafos narrativos como columna vertebral de cada sección. Las listas son recurso auxiliar — úsalas para pasos de construcción secuenciales, materiales o componentes. Si puedes describir algo en prosa fluida, hazlo.
 
