@@ -131,3 +131,18 @@ class ContentValidator:
     def ensure_content(self, content: Optional[str], message: str = "Content is required"):
         if not content or not content.strip():
             raise ValueError(message)
+    async def orchestrate_full_validation(self, content: str, collection: str, 
+                                        repo: Any, llm: Any, prompts: Any, 
+                                        debug_dir: Optional[Any] = None, 
+                                        log_prefix: str = "") -> Optional[str]:
+        """High-level orchestration to reduce code duplication in services."""
+        template_content = repo.get_template_content(collection)
+        return await self.validate_all(
+            content=content,
+            collection=collection,
+            llm_client=llm,
+            template_content=template_content,
+            prompt_service=prompts,
+            debug_dir=debug_dir,
+            log_prefix=log_prefix
+        )

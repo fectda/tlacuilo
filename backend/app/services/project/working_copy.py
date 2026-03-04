@@ -8,10 +8,14 @@ from app.services.validators.content import ContentValidator
 class ProjectWorkingCopyService:
     def __init__(self, repository: ProjectRepository, 
                  proj_validator: ProjectValidator, 
-                 cont_validator: ContentValidator):
+                 cont_validator: ContentValidator,
+                 llm: Any,
+                 prompts: Any):
         self.repo = repository
         self.proj_validator = proj_validator
         self.cont_validator = cont_validator
+        self.llm = llm
+        self.prompts = prompts
 
     def create_project(self, name: str, collection: str, slug: Optional[str] = None) -> Dict[str, Any]:
         self.cont_validator.ensure_content(name, "Project title is required")
@@ -55,13 +59,20 @@ class ProjectWorkingCopyService:
             
         return {"content": "", "source": "template", "state": state}
 
-    def save_working_copy(self, collection: str, slug: str, content: str) -> Dict[str, Any]:
+    async def save_working_copy(self, collection: str, slug: str, content: str) -> Dict[str, Any]:
         self.cont_validator.ensure_content(content)
         
-        err = self.cont_validator.validate_frontmatter(content)
-        if err: raise ValueError(f"Validación estructural fallida: {err}")
-        err = self.cont_validator.validate_metadata(content, collection)
-        if err: raise ValueError(f"Validación de metadatos fallida: {err}")
+        project_dir = self.repo.get_project_dir(collection, slug)
+        err = await self.cont_validator.orchestrate_full_validation(
+            content=content,
+            collection=collection,
+            repo=self.repo,
+            llm=self.llm,
+            prompts=self.prompts,
+            debug_dir=project_dir / "drafts-tests",
+            log_prefix="persist_"
+        )
+        if err: raise ValueError(f"Validación fallida: {err}")
         
         project_dir = self.repo.get_project_dir(collection, slug)
         self.repo.write_text(project_dir / f"{slug}.md", content)
@@ -92,12 +103,21 @@ class ProjectWorkingCopyService:
 
         return {"content": content, "is_working_copy_active": local_en_md.exists()}
 
-    def save_translation_copy(self, collection: str, slug: str, content: str):
+    async def save_translation_copy(self, collection: str, slug: str, content: str):
         self.cont_validator.ensure_content(content)
-        err = self.cont_validator.validate_frontmatter(content)
-        if err: raise ValueError(f"Validación estructural: {err}")
-        err = self.cont_validator.validate_metadata(content, collection)
-        if err: raise ValueError(f"Validación de metadatos: {err}")
+        project_dir = self.repo.get_project_dir(collection, slug)
+        
+        err = await self.cont_validator.orchestrate_full_validation(
+            content=content,
+            collection=collection,
+            repo=self.repo,
+            llm=self.llm,
+            prompts=self.prompts,
+            debug_dir=project_dir / "drafts-tests",
+            log_prefix="persist_en_",
+            target_language="English"
+        )
+        if err: raise ValueError(f"Validación traducción fallida: {err}")
             
         project_dir = self.repo.get_project_dir(collection, slug)
         self.repo.write_text(project_dir / f"{slug}.en.md", content)

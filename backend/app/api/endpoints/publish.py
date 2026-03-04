@@ -6,7 +6,7 @@ router = APIRouter()
 
 @router.post("/{collection}/{slug}/promote")
 async def promote_project(collection: str, slug: str, pub: ProjectPublishService = Depends(get_project_publish)):
-    return pub.publish_project(collection, slug)
+    return await pub.publish_project(collection, slug)
 
 @router.post("/{collection}/{slug}/publish")
 async def publish_project_remote(collection: str, slug: str, pub: ProjectPublishService = Depends(get_project_publish)):

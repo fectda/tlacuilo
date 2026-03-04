@@ -66,10 +66,10 @@ def get_project_discovery():
     return ProjectDiscoveryService(_repo, _proj_validator)
 
 def get_project_working_copy():
-    return ProjectWorkingCopyService(_repo, _proj_validator, _cont_validator)
+    return ProjectWorkingCopyService(_repo, _proj_validator, _cont_validator, _llm, _prompts)
 
 def get_project_publish():
-    return ProjectPublishService(_repo, _proj_validator, _cont_validator)
+    return ProjectPublishService(_repo, _proj_validator, _cont_validator, _llm, _prompts)
 
 # Studio Services
 def get_studio_shot_manager():

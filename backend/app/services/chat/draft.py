@@ -65,13 +65,12 @@ class ChatDraftService:
             raw = await self.llm.chat(draft_history, debug_path=debug_dir / log_name)
             
             candidate = self.cont_validator.sanitize_draft(raw)
-            err = await self.cont_validator.validate_all(
-                content=candidate, 
-                collection=collection, 
-                llm_client=self.llm, 
-                template_content=template_content, 
-                prompt_service=self.prompts,
-                target_language="Spanish",
+            err = await self.cont_validator.orchestrate_full_validation(
+                content=candidate,
+                collection=collection,
+                repo=self.repo,
+                llm=self.llm,
+                prompts=self.prompts,
                 debug_dir=debug_dir,
                 log_prefix="es_"
             )
@@ -115,12 +114,12 @@ class ChatDraftService:
             msgs.append({"role": "assistant", "content": raw})
             
             candidate = self.cont_validator.sanitize_draft(raw)
-            err = await self.cont_validator.validate_all(
-                content=candidate, 
-                collection=collection, 
-                llm_client=self.llm, 
-                template_content=template_content, 
-                prompt_service=self.prompts, 
+            err = await self.cont_validator.orchestrate_full_validation(
+                content=candidate,
+                collection=collection,
+                repo=self.repo,
+                llm=self.llm,
+                prompts=self.prompts,
                 target_language="English",
                 debug_dir=debug_dir,
                 log_prefix="en_"

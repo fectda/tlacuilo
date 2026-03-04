@@ -1,27 +1,43 @@
 import subprocess
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from app.repositories.project_repository import ProjectRepository
 from app.services.validators.project import ProjectValidator
 from app.services.validators.content import ContentValidator
+from app.clients.llm.base import LLMClient
+from app.services.prompt_service import PromptService
 
 class ProjectPublishService:
     def __init__(self, repository: ProjectRepository, 
                  proj_validator: ProjectValidator, 
-                 cont_validator: ContentValidator):
+                 cont_validator: ContentValidator,
+                 llm: LLMClient,
+                 prompts: PromptService):
         self.repo = repository
         self.proj_validator = proj_validator
         self.cont_validator = cont_validator
+        self.llm = llm
+        self.prompts = prompts
 
-    def publish_project(self, collection: str, slug: str) -> Dict[str, Any]:
+    async def publish_project(self, collection: str, slug: str) -> Dict[str, Any]:
         project_dir = self.repo.get_project_dir(collection, slug)
         local_md = project_dir / f"{slug}.md"
         
         if not local_md.exists(): raise FileNotFoundError("No working copy to publish")
             
         content = self.repo.read_text(local_md)
-        err = self.cont_validator.validate_schema(content, collection)
-        if err: raise ValueError(f"Schema Validation Failed: {err}")
+        
+        # Consistent validation (Structural + Semantic)
+        err = await self.cont_validator.orchestrate_full_validation(
+            content=content,
+            collection=collection,
+            repo=self.repo,
+            llm=self.llm,
+            prompts=self.prompts,
+            debug_dir=project_dir / "drafts-tests",
+            log_prefix="publish_"
+        )
+        if err: raise ValueError(f"Publish Validation Failed: {err}")
             
         target_md = self.repo.portfolio_content / collection / "es" / f"{slug}.md"
         self.repo.copy_file(local_md, target_md)

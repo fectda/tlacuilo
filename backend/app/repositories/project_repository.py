@@ -144,3 +144,7 @@ class ProjectRepository:
     def delete_dir(self, directory: Path):
         if directory.exists():
             shutil.rmtree(directory)
+    def get_template_content(self, collection: str) -> str:
+        """Centralized template loading for validation orchestration."""
+        template_path = self.portfolio_path / "src" / "templates" / f"{collection}-template.md"
+        return self.read_text(template_path) or ""

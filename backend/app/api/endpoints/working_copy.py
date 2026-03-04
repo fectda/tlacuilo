@@ -25,7 +25,7 @@ async def revert_project(collection: str, slug: str, wc: ProjectWorkingCopyServi
 
 @router.post("/{collection}/{slug}/persist")
 async def persist_content(collection: str, slug: str, request: ContentUpdate, wc: ProjectWorkingCopyService = Depends(get_project_working_copy)):
-    return wc.save_working_copy(collection, slug, request.content)
+    return await wc.save_working_copy(collection, slug, request.content)
 
 @router.get("/{collection}/{slug}/translate")
 async def get_translation(collection: str, slug: str, wc: ProjectWorkingCopyService = Depends(get_project_working_copy)):
@@ -33,5 +33,5 @@ async def get_translation(collection: str, slug: str, wc: ProjectWorkingCopyServ
 
 @router.post("/{collection}/{slug}/translate/persist")
 async def persist_translation(collection: str, slug: str, request: ContentUpdate, wc: ProjectWorkingCopyService = Depends(get_project_working_copy)):
-    wc.save_translation_copy(collection, slug, request.content)
+    await wc.save_translation_copy(collection, slug, request.content)
     return Response(status_code=200)
