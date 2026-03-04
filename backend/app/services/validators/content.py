@@ -1,35 +1,30 @@
 import frontmatter
 import json
 import logging
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
+
+from app.services.validators.schemas import COLLECTION_SCHEMAS
 
 logger = logging.getLogger(__name__)
 
-# Required frontmatter fields per collection, derived from the Astro content schema.
-# Fields with .optional() are excluded. Fields with .default() ARE included — defaults
-# are a build-time concern for Astro, not an excuse to omit them from the source file.
-COLLECTION_SCHEMAS: Dict[str, List[str]] = {
-    "bits":  ["title", "description", "date", "stack", "status", "progress", "type"],
-    "atoms": ["title", "shortTitle", "description", "date", "stack", "status", "type", "icon"],
-    "mind":  ["title", "description", "date", "status"],
-}
 
 class ContentValidator:
-    async def validate_all(self, content: str, collection: Optional[str] = None, 
+    async def validate_all(self, content: str, collection: Optional[str] = None,
                            llm_client: Optional[Any] = None, template_content: Optional[str] = None,
                            prompt_service: Optional[Any] = None, target_language: str = "Spanish",
                            debug_dir: Optional[Any] = None, log_prefix: str = "") -> Optional[str]:
         """Orchestrates all validation steps."""
         err = self.validate_frontmatter(content)
         if err: return err
-        
-        err = self.validate_metadata(content)
-        if err: return err
-        
+
+        if collection:
+            err = self.validate_metadata(content, collection)
+            if err: return err
+
         if collection and llm_client and template_content and prompt_service:
             err = await self.validate_semantic_structure(content, collection, llm_client, template_content, prompt_service, target_language, debug_dir, log_prefix)
             if err: return err
-            
+
         return None
 
     def validate_frontmatter(self, content: str) -> Optional[str]:
@@ -39,16 +34,18 @@ class ContentValidator:
         return None
 
     def validate_metadata(self, content: str, collection: str) -> Optional[str]:
-        """Validates required frontmatter keys against the collection schema."""
+        """Validates all frontmatter fields against the collection schema."""
         try:
             post = frontmatter.loads(content)
-            required_keys = COLLECTION_SCHEMAS.get(collection, [])
-            missing_keys = [k for k in required_keys if k not in post.metadata]
-            if missing_keys:
-                return f"Missing required fields for '{collection}': {missing_keys}"
+            schema = COLLECTION_SCHEMAS.get(collection, {})
+            for key, rule in schema.items():
+                result = rule.validate(post.metadata.get(key))
+                if result.error:
+                    return f"'{key}': {result.error}"
         except Exception as e:
             return f"Frontmatter parse error: {str(e)}"
         return None
+
 
     async def validate_semantic_structure(self, content: str, collection: str, 
                                           llm_client: Any, template_content: str, 
