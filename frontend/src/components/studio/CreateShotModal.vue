@@ -1,19 +1,11 @@
 <script setup>
 import { ref, computed, defineEmits } from 'vue'
+import { SHOT_TYPES, ATMOSPHERES } from '../../constants/studio'
 
 const emit = defineEmits(['close', 'submit'])
 
-const types = [
-    { value: 'macro',       icon: '⌀', label: 'Macro',       desc: 'Close-up extremo de un componente: junta de soldadura, conector, área de PCB.' },
-    { value: 'context',     icon: '◫', label: 'Context',     desc: 'Plano medio o abierto que muestra el objeto en su entorno de operación real.' },
-    { value: 'conceptual',  icon: '◈', label: 'Conceptual',  desc: 'Toma abstracta que comunica el concepto central del proyecto (escala, power glow, contraste orgánico vs. electrónico).' },
-]
-
-const atmospheres = [
-    { value: 'rojo',     dot: '#D4442F', label: 'Rojo',     desc: 'Estados activos, encendido, componentes de alta energía (LEDs, rieles de poder, soldadura).' },
-    { value: 'turquesa', dot: '#00A6B6', label: 'Turquesa', desc: 'Estados idle, RF/datos, sensores, partes electrónicas de precisión.' },
-    { value: 'ambar',    dot: '#F59E0B', label: 'Ámbar',    desc: 'Eventos térmicos, materiales orgánicos, contextos vintage o cálidos.' },
-]
+const types = SHOT_TYPES
+const atmospheres = ATMOSPHERES
 
 const title = ref('')
 const description = ref('')

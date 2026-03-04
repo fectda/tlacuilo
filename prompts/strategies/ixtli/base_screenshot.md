@@ -1,0 +1,1 @@
+Flat, 2D high-fidelity digital interface display. The screen content fills the frame with pixel-perfect clarity. Matte obsidian digital background (#050505) with zero physical workbench or reflections.

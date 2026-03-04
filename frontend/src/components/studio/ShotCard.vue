@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from 'vue'
+import { SHOT_STATUS_CONFIG, ATMOSPHERE_STYLES, SHOT_TYPES } from '../../constants/studio'
 
 const props = defineProps({
     shot: { type: Object, required: true },
@@ -8,20 +9,13 @@ const props = defineProps({
 
 const emit = defineEmits(['select', 'delete'])
 
-const statusConfig = {
-    pending_upload: { label: 'PENDING UPLOAD', textColor: '#6b7280', dotColor: '#4b5563' },
-    queued:         { label: 'QUEUED',          textColor: '#f59e0b', dotColor: '#f59e0b' },
-    generated:      { label: 'GENERATED',       textColor: '#10b981', dotColor: '#10b981' },
-    approved:       { label: 'APPROVED ✓',      textColor: '#22d3ee', dotColor: '#22d3ee' },
-}
+const statusConfig = SHOT_STATUS_CONFIG
+const atmosphereStyle = ATMOSPHERE_STYLES
 
-const atmosphereStyle = {
-    rojo:     { bg: 'rgba(212,68,47,0.25)',  text: '#f87171', border: 'rgba(212,68,47,0.4)' },
-    turquesa: { bg: 'rgba(0,166,182,0.2)',   text: '#22d3ee', border: 'rgba(0,166,182,0.4)' },
-    ambar:    { bg: 'rgba(245,158,11,0.2)',  text: '#fbbf24', border: 'rgba(245,158,11,0.4)' },
-}
-
-const typeIcon = { macro: '⌀', context: '◫', conceptual: '◈' }
+const typeIcon = SHOT_TYPES.reduce((acc, t) => {
+    acc[t.value] = t.icon
+    return acc
+}, {})
 
 const status = computed(() => statusConfig[props.shot.status] || statusConfig.pending_upload)
 const atm = computed(() => atmosphereStyle[props.shot.atmosphere] || null)

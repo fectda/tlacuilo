@@ -104,7 +104,7 @@ class StudioGenerationService:
         return {"images": meta["images"]}
 
     def _assemble_prompt(self, visual_prompt: str, atmosphere: str, shot_type: str) -> str:
-        base = self.prompts.get_ixtli_base()
+        base = self.prompts.get_ixtli_base(shot_type)
         type_p = self.prompts.get_ixtli_type(shot_type)
         atm_p = self.prompts.get_ixtli_atm(atmosphere)
         qual_p = self.prompts.get_ixtli_quality()

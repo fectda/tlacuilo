@@ -76,8 +76,9 @@ class PromptService:
         path = self.prompts_path / "strategies" / "semantic_validation.md"
         return self.load_prompt(path)
 
-    def get_ixtli_base(self) -> str:
-        path = self.prompts_path / "strategies" / "ixtli" / "base.md"
+    def get_ixtli_base(self, shot_type: str = "macro") -> str:
+        base_file = "base_screenshot.md" if shot_type == "screenshot" else "base.md"
+        path = self.prompts_path / "strategies" / "ixtli" / base_file
         return self.load_prompt(path).strip()
 
     def get_ixtli_type(self, shot_type: str) -> str:

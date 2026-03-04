@@ -381,8 +381,8 @@ El archivo debe contener única y exclusivamente la siguiente estructura. No se 
         ```json
         {
           "title": "...",
-          "description": "Descripción técnica del encuadre",
-          "type": "macro|context|conceptual",
+          "description": "Technical framing for hardware or UI view description for screenshots.",
+          "type": "macro|context|conceptual|screenshot",
           "focus": "Componente protagonista (ej: press-fit entre pieza A y B)",
           "atmosphere": "rojo|turquesa"
         }

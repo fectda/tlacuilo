@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { useStudioStore } from '../../stores/studio'
 import StudioService from '../../services/StudioService'
+import { SHOT_TYPES, ATMOSPHERES, ATMOSPHERE_STYLES } from '../../constants/studio'
 
 const props = defineProps({
     collection: { type: String, required: true },
@@ -13,17 +14,8 @@ const emit = defineEmits(['delete-shot'])
 const studioStore = useStudioStore()
 const shot = computed(() => studioStore.currentShot)
 
-const types = [
-    { value: 'macro',       icon: '⌀', label: 'Macro',       desc: 'Close-up extremo de un componente: junta de soldadura, conector, área de PCB.' },
-    { value: 'context',     icon: '◫', label: 'Context',     desc: 'Plano medio o abierto que muestra el objeto en su entorno de operación real.' },
-    { value: 'conceptual',  icon: '◈', label: 'Conceptual',  desc: 'Toma abstracta que comunica el concepto central del proyecto (escala, power glow, contraste orgánico vs. electrónico).' },
-]
-
-const atmospheres = [
-    { value: 'rojo',     dot: '#D4442F', label: 'Rojo',     desc: 'Estados activos, encendido, componentes de alta energía (LEDs, rieles de poder, soldadura).' },
-    { value: 'turquesa', dot: '#00A6B6', label: 'Turquesa', desc: 'Estados idle, RF/datos, sensores, partes electrónicas de precisión.' },
-    { value: 'ambar',    dot: '#F59E0B', label: 'Ámbar',    desc: 'Eventos térmicos, materiales orgánicos, contextos vintage o cálidos.' },
-]
+const types = SHOT_TYPES
+const atmospheres = ATMOSPHERES
 
 const fileInput = ref(null)
 const correctionText = ref('')
@@ -99,8 +91,7 @@ watch(() => studioStore.currentShot?.shot_id, () => {
 })
 
 // Accent color for atmosphere
-const atmosphereAccent = { rojo: '#D4442F', turquesa: '#00A6B6', ambar: '#F59E0B' }
-const accent = computed(() => atmosphereAccent[shot.value?.atmosphere] || '#6b7280')
+const accent = computed(() => ATMOSPHERE_STYLES[shot.value?.atmosphere]?.accent || '#6b7280')
 
 // Image URL helper with cache buster
 const getImageUrl = (id) => {
