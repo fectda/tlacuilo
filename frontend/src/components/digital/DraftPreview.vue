@@ -26,6 +26,28 @@ watch(() => props.content, (newVal) => {
     }
 })
 
+const parsedContent = computed(() => {
+    const text = localContent.value || ''
+    const match = text.match(/^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/)
+    
+    if (match) {
+        const yamlRaw = match[1]
+        const body = match[2]
+        const metadata = {}
+        
+        yamlRaw.split('\n').forEach(line => {
+            const [key, ...val] = line.split(':')
+            if (key && val.length) {
+                metadata[key.trim()] = val.join(':').trim()
+            }
+        })
+        
+        return { metadata, body }
+    }
+    
+    return { metadata: null, body: text }
+})
+
 const renderMarkdown = (text) => {
     if (!text) return ''
     return marked(text)
@@ -232,9 +254,23 @@ const handleGenerateDraft = async () => {
                 class="flex-1 p-8 custom-scrollbar relative z-10"
                 :class="(chatStore.isDrafting || chatStore.draftError) ? 'overflow-hidden' : 'overflow-y-auto'"
             >
-                <div v-if="localContent" 
-                    class="portfolio-preview max-w-none"
-                    v-html="renderMarkdown(localContent)">
+                <div v-if="localContent" class="portfolio-preview max-w-none">
+                    <!-- Simplified Metadata Header (KEY : VALUE) -->
+                    <div v-if="parsedContent.metadata" class="mb-14 border-b-2 border-white/5 pb-8 font-mono">
+                        <div class="space-y-2">
+                            <div v-for="(val, key) in parsedContent.metadata" :key="key" class="flex items-start gap-4 group">
+                                <span class="text-[9px] font-black uppercase tracking-[0.25em] text-neutral-500 w-32 shrink-0 pt-0.5">
+                                    {{ key.replace(/_/g, ' ') }} :
+                                </span>
+                                <span class="text-[11px] font-bold tracking-widest text-white/90 uppercase flex-1">
+                                    {{ val.toString().replace(/[\[\]"]/g, '') }}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Body Content -->
+                    <div v-html="renderMarkdown(parsedContent.body)"></div>
                 </div>
 
                 <div v-else class="h-full flex flex-col items-center justify-center text-neutral-600">
