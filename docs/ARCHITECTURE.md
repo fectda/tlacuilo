@@ -551,17 +551,33 @@ El Experto debe entregar **dos workflows JSON**:
 Operación de sistema que cierra el ciclo completo de documentación y sincroniza el portafolio con el repositorio remoto. Es una acción global del proyecto, independiente de cualquier flujo de contenido o imagen.
 
 - `POST /api/{collection}/{slug}/publish`: **Publicación al Portafolio**
-    - **Responsabilidad**: Marcar el proyecto como COMPLETADO y sincronizar la Verdad Técnica con el repositorio remoto.
+    - **Responsabilidad**: Consolidar el proyecto, optimizar activos visuales y sincronizar la Verdad Técnica con el repositorio remoto mediante un commit limpio.
     - **Input**: `{}`.
     - **Validation**:
-        1. Debe existir versión en Inglés (`en/{slug}.md`).
-        2. El `doc_status` debe ser distinto de `publicado` (evitar re-publicaciones innecesarias).
+        1. Debe existir versión en Español (`{slug}.md`) e Inglés (`{slug}.en.md`) en la memoria local.
+        2. El `doc_status` debe ser distinto de `publicado`.
     - **Proceso Interno**:
-        1. Actualiza `doc_state.json` → `doc_status: publicado`.
-        2. El Sistema (no agentes) ejecuta `git add`, `git commit`, `git push` sobre el portafolio de forma automatizada. **NUNCA** delegar comandos git a los agentes.
+        1. **Preparación de Metadatos**: Actualiza el frontmatter de ambos archivos localmente (`es` y `en`) estableciendo `draft: false`.
+        2. **Sincronización de Contenido**: Copia/Sobreescribe los archivos `.md` actualizados desde la memoria local a sus respectivas carpetas en el Portafolio:
+            - `PORTAFOLIO_PATH/{collection}/es/{slug}.md`
+            - `PORTAFOLIO_PATH/{collection}/en/{slug}.md`
+        3. **Optimización de Activos**:
+            - Escanea todos los shots del proyecto en busca de imágenes marcadas como `approved` en su `metadata.json`.
+            - **Procesado Web**: Comprime y optimiza dichas imágenes para web (Pillow/WebP).
+            - **Despliegue de Assets**: Mueve las versiones optimizadas a `PORTAFOLIO_PATH/public/{collection}/{slug}/`.
+        4. **Git Transaction (Clean Commit)**:
+            - **Validación de Índice**: Verifica que no existan archivos previamente en el "stage" (index) de Git. Si hay cambios staged ajenos al proyecto, la operación **DEBE** abortar con error para evitar contaminación.
+            - **Add Explicito**: Ejecuta `git add` **únicamente** sobre los archivos específicos del proyecto:
+                - `src/content/{collection}/es/{slug}.md`
+                - `src/content/{collection}/en/{slug}.md`
+                - `public/{collection}/{slug}/` (directorio de assets optimizados).
+            - **Commit Quirúrgico**: Ejecuta `git commit -m "publish(docs): {slug}"` asegurando que solo los archivos arriba mencionados formen parte del commit.
+            - **Push**: Ejecuta `git push`.
+        5. **Cierre de Ciclo**: Actualiza `projects/{collection}/{slug}/doc_state.json` -> `doc_status: publicado` y apaga `is_working_copy_active`.
     - **Contrato de Respuesta (Output)**:
         - **Éxito (200)**: `{ "status": "publicado" }`.
-        - **Falla (400)**: Falta versión en Inglés.
+        - **Falla (400)**: Faltan archivos obligatorios o error de validación.
+        - **Falla (500)**: Error en optimización de imagen o fallo en la transacción Git.
 
 ## 4. Protocolos de Sincronización y Alineación
 
