@@ -8,7 +8,10 @@ ARG GID=1000
 RUN groupadd -g "${GID}" tlacuilo && \
     useradd -u "${UID}" -g tlacuilo -m tlacuilo
 
-RUN apt-get update && apt-get install -y git curl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y git curl && \
+    curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs && \
+    rm -rf /var/lib/apt/lists/*
 
 USER tlacuilo
 WORKDIR /home/tlacuilo/app

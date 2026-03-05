@@ -5,11 +5,11 @@ La infraestructura de Tlacuilo se basa en contenedores Docker orquestados por Do
 ## Servicios del Contenedor
 
 ### 1. `backend` (El Cerebro)
--   **Imagen Base**: `python:3.11-slim`
--   **Responsabilidad**: Ejecutar la API FastAPI, gestionar la lógica de negocio y conectarse con los servicios externos (ComfyUI, Ollama).
+-   **Imagen Base**: `python:3.11-slim` + `nodejs` + `npm`
+-   **Responsabilidad**: Ejecutar la API FastAPI, gestionar la lógica de negocio, conectarse con los servicios externos (ComfyUI, Ollama) y **ejecutar la compilación local del portafolio (Astro) como paso de verificación antes de publicar en Git**.
 -   **Volúmenes**:
     -   `./backend:/app`: Código fuente en vivo.
-    -   `${PORTAFOLIO_PATH}:/data`: Montaje del portafolio real para lectura/escritura (Externo).
+    -   `${PORTAFOLIO_PATH}:/data`: Montaje del portafolio real para lectura/escritura y compilación (Externo).
     -   `./data:/app/internal_data`: Persistencia de memoria interna (Chats, estados).
 -   **Puertos**: Expone `8000:8000`.
 -   **Variables de Entorno**:
