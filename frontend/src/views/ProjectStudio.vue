@@ -7,6 +7,8 @@ import ShotCard from '../components/studio/ShotCard.vue'
 import CreateShotModal from '../components/studio/CreateShotModal.vue'
 import ShotDetailPanel from '../components/studio/ShotDetailPanel.vue'
 import { UI_TEXTS } from '../constants/uiTexts'
+import ModalConfirm from '../components/common/ModalConfirm.vue'
+import ActionBanner from '../components/common/ActionBanner.vue'
 
 const texts = { ...UI_TEXTS.PROJECT_COMMON, ...UI_TEXTS.PROJECT_STUDIO }
 const commonTexts = UI_TEXTS.COMMON
@@ -18,6 +20,19 @@ const projectStore = useProjectStore()
 const { collection, slug } = route.params
 const showCreateModal = ref(false)
 
+// Modal State
+const confirmModal = ref({
+    show: false,
+    title: '',
+    message: '',
+    type: 'info',
+    onConfirm: () => {}
+})
+
+const showConfirm = (title, message, onConfirm, type = 'info') => {
+    confirmModal.value = { show: true, title, message, onConfirm, type }
+}
+
 onMounted(async () => {
     await projectStore.fetchProjectFromList(collection, slug)
     await studioStore.fetchShots(collection, slug)
@@ -28,9 +43,12 @@ const handleSelectShot = async (shot) => {
 }
 
 const handleDeleteShot = async (shotId) => {
-    if (confirm(texts.CONFIRM_DELETE_SHOT)) {
-        await studioStore.deleteShot(collection, slug, shotId)
-    }
+    showConfirm(
+        'ELIMINAR SHOT',
+        texts.CONFIRM_DELETE_SHOT,
+        () => studioStore.deleteShot(collection, slug, shotId),
+        'danger'
+    )
 }
 
 const handleSuggest = async () => {
@@ -43,9 +61,12 @@ const handleCreateShot = async (payload) => {
 }
 
 const handleGlobalPromotion = async () => {
-    if (confirm(texts.CONFIRM_PUBLISH)) {
-        await projectStore.publishProject(collection, slug)
-    }
+    showConfirm(
+        'EJECUTAR PUBLICACIÓN',
+        texts.CONFIRM_PUBLISH,
+        () => projectStore.publishProject(collection, slug),
+        'warning'
+    )
 }
 </script>
 
@@ -169,5 +190,21 @@ const handleGlobalPromotion = async () => {
             @submit="handleCreateShot"
             @close="showCreateModal = false"
         />
+        <!-- Feedback & Modals -->
+        <ActionBanner 
+            :status="projectStore.actionFeedback.status"
+            :message="projectStore.actionFeedback.message"
+            :title="projectStore.actionFeedback.title"
+        />
+
+        <ModalConfirm 
+            :isOpen="confirmModal.show"
+            :title="confirmModal.title"
+            :message="confirmModal.message"
+            :type="confirmModal.type"
+            @close="confirmModal.show = false"
+            @confirm="confirmModal.onConfirm"
+        />
+
     </div>
 </template>

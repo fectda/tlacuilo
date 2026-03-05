@@ -4,6 +4,7 @@ import { marked } from 'marked'
 import { useProjectStore } from '../../stores/project'
 import { useChatStore } from '../../stores/chat'
 import { UI_TEXTS } from '../../constants/uiTexts'
+import ModalConfirm from '../common/ModalConfirm.vue'
 
 const texts = UI_TEXTS.DRAFT_PREVIEW
 
@@ -14,6 +15,19 @@ const isSaving = ref(false)
 const isEditing = ref(false)
 const localContent = ref(props.content || '')
 const persistError = ref(null)
+
+// Modal State
+const confirmModal = ref({
+    show: false,
+    title: '',
+    message: '',
+    type: 'info',
+    onConfirm: () => {}
+})
+
+const showConfirm = (title, message, onConfirm, type = 'info') => {
+    confirmModal.value = { show: true, title, message, onConfirm, type }
+}
 
 const isDirty = computed(() => {
     const savedContent = props.isTranslation 
@@ -74,15 +88,19 @@ const handleManualSave = async () => {
 }
 
 const handlePromote = async () => {
-    try {
-        if (confirm(UI_TEXTS.PROJECT_COMMON.CONFIRM_PROMOTE)) {
-            persistError.value = null
-            await projectStore.promoteProject(props.collection, props.slug)
+    showConfirm(
+        'PROMOVER CAMBIOS',
+        UI_TEXTS.PROJECT_COMMON.CONFIRM_PROMOTE,
+        async () => {
+            try {
+                persistError.value = null
+                await projectStore.promoteProject(props.collection, props.slug)
+            } catch (e) {
+                console.error(e)
+                persistError.value = e.response?.data?.detail || e.message
+            }
         }
-    } catch (e) {
-        console.error(e)
-        persistError.value = e.response?.data?.detail || e.message
-    }
+    )
 }
 
 const validation = computed(() => {
@@ -101,14 +119,19 @@ watch(localContent, (newVal) => {
 })
 
 const handleDiscard = () => {
-    if (confirm(UI_TEXTS.PROJECT_COMMON.CONFIRM_REVERT)) {
-        const savedContent = props.isTranslation 
-            ? (projectStore.currentTranslation?.content || '')
-            : (projectStore.currentProject?.content || '')
-        localContent.value = savedContent
-        isEditing.value = false
-        emit('discard-draft')
-    }
+    showConfirm(
+        'DESCARTAR CAMBIOS',
+        UI_TEXTS.PROJECT_COMMON.CONFIRM_REVERT,
+        () => {
+            const savedContent = props.isTranslation 
+                ? (projectStore.currentTranslation?.content || '')
+                : (projectStore.currentProject?.content || '')
+            localContent.value = savedContent
+            isEditing.value = false
+            emit('discard-draft')
+        },
+        'danger'
+    )
 }
 
 const handleGenerateDraft = async () => {
@@ -297,6 +320,15 @@ const handleGenerateDraft = async () => {
                 <span>{{ texts.MARKDOWN }}</span>
             </div>
         </div>
+
+        <ModalConfirm 
+            :isOpen="confirmModal.show"
+            :title="confirmModal.title"
+            :message="confirmModal.message"
+            :type="confirmModal.type"
+            @close="confirmModal.show = false"
+            @confirm="confirmModal.onConfirm"
+        />
     </div>
 </template>
 

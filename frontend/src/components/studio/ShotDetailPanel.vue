@@ -4,6 +4,7 @@ import { useStudioStore } from '../../stores/studio'
 import StudioService from '../../services/StudioService'
 import { SHOT_TYPES, ATMOSPHERES, ATMOSPHERE_STYLES } from '../../constants/studio'
 import { UI_TEXTS } from '../../constants/uiTexts'
+import ModalConfirm from '../common/ModalConfirm.vue'
 
 const texts = UI_TEXTS.SHOT_DETAIL
 const commonTexts = UI_TEXTS.COMMON
@@ -26,6 +27,20 @@ const correctionText = ref('')
 const isEditingMeta = ref(false)
 const metaEdit = ref({})
 const selectedComflyId = ref(null)
+
+// Modal State
+const confirmModal = ref({
+    show: false,
+    title: '',
+    message: '',
+    type: 'info',
+    onConfirm: () => {}
+})
+
+const showConfirm = (title, message, onConfirm, type = 'info') => {
+    confirmModal.value = { show: true, title, message, onConfirm, type }
+}
+
 const pollingInterval = ref(null)
 const cacheBuster = ref(Date.now())
 
@@ -154,10 +169,15 @@ const handleApprove = async () => {
 
 // Delete Variant
 const handleDeleteVariant = async (comflyId) => {
-    if (confirm(texts.CONFIRM_DELETE_VARIANT)) {
-        await studioStore.deleteImage(props.collection, props.slug, shot.value.shot_id, comflyId)
-        if (selectedComflyId.value === comflyId) selectedComflyId.value = null
-    }
+    showConfirm(
+        'ELIMINAR VARIANTE',
+        texts.CONFIRM_DELETE_VARIANT,
+        async () => {
+            await studioStore.deleteImage(props.collection, props.slug, shot.value.shot_id, comflyId)
+            if (selectedComflyId.value === comflyId) selectedComflyId.value = null
+        },
+        'danger'
+    )
 }
 </script>
 
@@ -481,5 +501,14 @@ const handleDeleteVariant = async (comflyId) => {
                 </div>
             </div>
         </template>
+
+        <ModalConfirm 
+            :isOpen="confirmModal.show"
+            :title="confirmModal.title"
+            :message="confirmModal.message"
+            :type="confirmModal.type"
+            @close="confirmModal.show = false"
+            @confirm="confirmModal.onConfirm"
+        />
     </div>
 </template>

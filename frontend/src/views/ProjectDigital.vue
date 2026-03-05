@@ -7,6 +7,8 @@ import ChatArea from '../components/digital/ChatArea.vue'
 import TranslationStudio from '../components/digital/TranslationStudio.vue'
 import DraftPreview from '../components/digital/DraftPreview.vue'
 import { UI_TEXTS } from '../constants/uiTexts'
+import ModalConfirm from '../components/common/ModalConfirm.vue'
+import ActionBanner from '../components/common/ActionBanner.vue'
 
 const texts = { ...UI_TEXTS.PROJECT_COMMON, ...UI_TEXTS.PROJECT_DIGITAL }
 
@@ -43,6 +45,19 @@ const viewMode = ref('original') // 'original' | 'translation'
 const originalDraft = ref(null)
 const translationDraft = ref(null)
 
+// Modal State
+const confirmModal = ref({
+    show: false,
+    title: '',
+    message: '',
+    type: 'info',
+    onConfirm: () => {}
+})
+
+const showConfirm = (title, message, onConfirm, type = 'info') => {
+    confirmModal.value = { show: true, title, message, onConfirm, type }
+}
+
 const handleDraftGenerated = (content) => {
     if (viewMode.value === 'translation') {
         translationDraft.value = content
@@ -65,22 +80,29 @@ const toggleViewMode = async (mode) => {
 }
 
 const handleGlobalPromotion = async () => {
-    // Re-verify Section D status if needed
-     if (confirm(texts.CONFIRM_PUBLISH)) {
-        await projectStore.publishProject(collection, slug)
-    }
+    showConfirm(
+        'EJECUTAR PUBLICACIÓN',
+        texts.CONFIRM_PUBLISH,
+        () => projectStore.publishProject(collection, slug),
+        'warning'
+    )
 }
 
 const handleRevert = async () => {
-    if (confirm(texts.CONFIRM_REVERT)) {
-        await projectStore.revertProject(collection, slug)
-    }
+    showConfirm(
+        'DESCARTAR CAMBIOS',
+        texts.CONFIRM_REVERT,
+        () => projectStore.revertProject(collection, slug),
+        'danger'
+    )
 }
 
 const handlePublish = async () => {
-    if (confirm(texts.CONFIRM_PROMOTE)) {
-        await projectStore.promoteProject(collection, slug)
-    }
+    showConfirm(
+        'PROMOVER CAMBIOS',
+        texts.CONFIRM_PROMOTE,
+        () => projectStore.promoteProject(collection, slug)
+    )
 }
 
 const handleChildSave = async () => {
@@ -207,5 +229,20 @@ watch(() => projectStore.isWorkingCopyActive, (val) => {
             </div>
         </div>
 
+        <!-- Feedback & Modals -->
+        <ActionBanner 
+            :status="projectStore.actionFeedback.status"
+            :message="projectStore.actionFeedback.message"
+            :title="projectStore.actionFeedback.title"
+        />
+
+        <ModalConfirm 
+            :isOpen="confirmModal.show"
+            :title="confirmModal.title"
+            :message="confirmModal.message"
+            :type="confirmModal.type"
+            @close="confirmModal.show = false"
+            @confirm="confirmModal.onConfirm"
+        />
     </div>
 </template>

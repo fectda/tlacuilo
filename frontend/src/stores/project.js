@@ -12,6 +12,10 @@ export const useProjectStore = defineStore('project', () => {
     const loading = ref(false)
     const error = ref(null)
 
+    // Action feedback state
+    const isActionLoading = ref(false)
+    const actionFeedback = ref({ status: null, message: null, title: null })
+
     const currentTranslation = ref(null)
 
     // Actions
@@ -116,17 +120,24 @@ export const useProjectStore = defineStore('project', () => {
     }
 
     const promoteProject = async (collection, slug) => {
+        isActionLoading.value = true
+        actionFeedback.value = { status: 'loading', message: 'Promoviendo cambios al Portafolio...', title: 'PROMOVIENDO' }
         try {
             const result = await ProjectService.promoteProject(collection, slug)
             if (currentProject.value) {
                 currentProject.value.is_working_copy_active = false
                 currentProject.value.doc_status = 'promovido'
             }
+            actionFeedback.value = { status: 'success', message: 'Proyecto promovido con éxito', title: 'OPERACIÓN COMPLETADA' }
+            setTimeout(() => { actionFeedback.value.status = null }, 3000)
             return result
         } catch (e) {
             console.error('Promote error:', e)
-            error.value = e.response?.data?.detail || e.message
+            actionFeedback.value = { status: 'error', message: e.response?.data?.detail || e.message, title: 'ERROR DE PROMOCIÓN' }
+            setTimeout(() => { actionFeedback.value.status = null }, 5000)
             throw e
+        } finally {
+            isActionLoading.value = false
         }
     }
 
@@ -151,14 +162,21 @@ export const useProjectStore = defineStore('project', () => {
     }
 
     const revertProject = async (collection, slug) => {
+        isActionLoading.value = true
+        actionFeedback.value = { status: 'loading', message: 'Revirtiendo cambios locales...', title: 'REVIRTIENDO' }
         try {
             const result = await ProjectService.revertProject(collection, slug)
             await fetchContent(collection, slug)
+            actionFeedback.value = { status: 'success', message: 'Cambios revertidos correctamente', title: 'CABIOS RESTAURADOS' }
+            setTimeout(() => { actionFeedback.value.status = null }, 3000)
             return result
         } catch (e) {
             console.error('Revert error:', e)
-            error.value = e.response?.data?.detail || e.message
+            actionFeedback.value = { status: 'error', message: e.response?.data?.detail || e.message, title: 'ERROR DE REVERSIÓN' }
+            setTimeout(() => { actionFeedback.value.status = null }, 5000)
             throw e
+        } finally {
+            isActionLoading.value = false
         }
     }
 
@@ -174,16 +192,23 @@ export const useProjectStore = defineStore('project', () => {
     })
 
     const publishProject = async (collection, slug) => {
+        isActionLoading.value = true
+        actionFeedback.value = { status: 'loading', message: 'Ejecutando Git Ops: Commit & Push...', title: 'PUBLICANDO' }
         try {
             const result = await ProjectService.publishProject(collection, slug)
             if (currentProject.value) {
                 currentProject.value.doc_status = 'publicado'
             }
+            actionFeedback.value = { status: 'success', message: 'Publicación global completada con éxito', title: 'SISTEMA SINCRONIZADO' }
+            setTimeout(() => { actionFeedback.value.status = null }, 3000)
             return result
         } catch (e) {
             console.error('Publish error:', e)
-            error.value = e.response?.data?.detail || e.message
+            actionFeedback.value = { status: 'error', message: e.response?.data?.detail || e.message, title: 'FALLO DE PUBLICACIÓN' }
+            setTimeout(() => { actionFeedback.value.status = null }, 8000)
             throw e
+        } finally {
+            isActionLoading.value = false
         }
     }
 
@@ -193,6 +218,8 @@ export const useProjectStore = defineStore('project', () => {
         currentTranslation,
         loading,
         error,
+        isActionLoading,
+        actionFeedback,
         fetchProjects,
         fetchProjectFromList,
         fetchTranslation,

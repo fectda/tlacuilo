@@ -8,6 +8,7 @@ import ProjectFilter from './ProjectFilter.vue'
 import BaseIcon from './BaseIcon.vue'
 import StatusBadge from './StatusBadge.vue'
 import { UI_STRINGS } from '../constants/uiStrings'
+import ModalConfirm from './common/ModalConfirm.vue'
 
 const router = useRouter()
 const store = useProjectStore()
@@ -20,6 +21,19 @@ const activeFilters = reactive({
     collections: [],
     statuses: []
 })
+
+// Modal State
+const confirmModal = ref({
+    show: false,
+    title: '',
+    message: '',
+    type: 'info',
+    onConfirm: () => {}
+})
+
+const showConfirm = (title, message, onConfirm, type = 'info') => {
+    confirmModal.value = { show: true, title, message, onConfirm, type }
+}
 
 const getSectionTitle = (key) => {
     return UI_STRINGS.filters.collections[key] || key
@@ -74,14 +88,19 @@ const handleProjectCreated = () => {
 }
 
 const handleForgetProject = async (collection, slug) => {
-    if (confirm(UI_STRINGS.grid.confirm_forget)) {
-        try {
-            await store.forgetProject(collection, slug)
-            fetchProjects()
-        } catch (e) {
-            console.error('Forget error:', e)
-        }
-    }
+    showConfirm(
+        'ELIMINAR MEMORIA',
+        UI_STRINGS.grid.confirm_forget,
+        async () => {
+            try {
+                await store.forgetProject(collection, slug)
+                fetchProjects()
+            } catch (e) {
+                console.error('Forget error:', e)
+            }
+        },
+        'danger'
+    )
 }
 
 const handleResurrectProject = async (collection, slug) => {
@@ -209,5 +228,14 @@ onMounted(() => {
         </div>
 
         <NewProjectModal v-if="showNewProjectModal" @close="showNewProjectModal = false" @created="handleProjectCreated" />
+
+        <ModalConfirm 
+            :isOpen="confirmModal.show"
+            :title="confirmModal.title"
+            :message="confirmModal.message"
+            :type="confirmModal.type"
+            @close="confirmModal.show = false"
+            @confirm="confirmModal.onConfirm"
+        />
     </div>
 </template>
