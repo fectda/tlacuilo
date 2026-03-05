@@ -5,6 +5,11 @@ class StudioValidator:
     def ensure_shot(self, meta: Optional[Dict[str, Any]], shot_id: str) -> Dict[str, Any]:
         if meta is None:
             raise FileNotFoundError(f"Shot '{shot_id}' not found.")
+        
+        # Ensure 'images' key exists for backward compatibility or corrupt metadata
+        if "images" not in meta:
+            meta["images"] = []
+            
         return meta
 
     def ensure_variant(self, images: List[Dict[str, Any]], comfly_id: str, 
