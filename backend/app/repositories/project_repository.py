@@ -141,9 +141,24 @@ class ProjectRepository:
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(src, dst)
 
+    def move_file(self, src: Path, dst: Path):
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(str(src), str(dst))
+
     def delete_dir(self, directory: Path):
         if directory.exists():
             shutil.rmtree(directory)
+
+    def set_metadata(self, md_file: Path, metadata_updates: Dict[str, Any]):
+        """Updates frontmatter metadata while preserving content."""
+        if not md_file.exists():
+            return
+        post = frontmatter.load(md_file)
+        post.metadata.update(metadata_updates)
+        self.write_text(md_file, frontmatter.dumps(post))
+
+    def ensure_dir(self, path: Path):
+        path.mkdir(parents=True, exist_ok=True)
     def get_template_content(self, collection: str) -> str:
         """Centralized template loading for validation orchestration."""
         template_path = self.portfolio_path / "src" / "templates" / f"{collection}-template.md"

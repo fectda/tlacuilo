@@ -12,4 +12,5 @@ pytest-asyncio
 pytest-mock
 httpx
 pyspellchecker
+Pillow
 

@@ -1,92 +1,163 @@
-import subprocess
+import logging
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Dict, Any, List
+from fastapi import HTTPException
 from app.repositories.project_repository import ProjectRepository
-from app.services.validators.project import ProjectValidator
 from app.services.validators.content import ContentValidator
+from app.services.system.git_service import GitService
+from app.services.studio.image_service import ImageOptimizationService
 from app.clients.llm.base import LLMClient
 from app.services.prompt_service import PromptService
 
+logger = logging.getLogger(__name__)
+
 class ProjectPublishService:
+    """
+    Orchestrator for the publishing lifecycle.
+    Follows SOLID by delegating Git and Image operations to specialized services.
+    """
     def __init__(self, repository: ProjectRepository, 
-                 proj_validator: ProjectValidator, 
                  cont_validator: ContentValidator,
+                 git: GitService,
+                 image_opt: ImageOptimizationService,
                  llm: LLMClient,
                  prompts: PromptService):
         self.repo = repository
-        self.proj_validator = proj_validator
         self.cont_validator = cont_validator
+        self.git = git
+        self.image_opt = image_opt
         self.llm = llm
         self.prompts = prompts
 
-    async def publish_project(self, collection: str, slug: str) -> Dict[str, Any]:
+    async def promote_to_portfolio(self, collection: str, slug: str) -> Dict[str, Any]:
+        """
+        Validates the working copy and promotes it to the portfolio (Español).
+        Sets draft: false in the local copy before moving/copying.
+        """
         project_dir = self.repo.get_project_dir(collection, slug)
         local_md = project_dir / f"{slug}.md"
         
-        if not local_md.exists(): raise FileNotFoundError("No working copy to publish")
+        if not local_md.exists():
+            raise HTTPException(status_code=404, detail="No existe una copia de trabajo para promover.")
             
         content = self.repo.read_text(local_md)
         
-        # Consistent validation (Structural + Semantic)
+        # 1. Structural Validation
         err = await self.cont_validator.orchestrate_full_validation(
             content=content,
             collection=collection,
             repo=self.repo,
             llm=self.llm,
             prompts=self.prompts,
-            debug_dir=project_dir / "drafts-tests",
-            log_prefix="publish_"
+            debug_dir=None # No debug files for promotion
         )
-        if err: raise ValueError(f"Publish Validation Failed: {err}")
+        if err:
+            raise ValueError(f"Fallo en la validación de contenido: {err}")
             
+        # 2. Update Frontmatter (draft: false)
+        self.repo.set_metadata(local_md, {"draft": False})
+        
+        # 3. Copy to Portfolio (es)
         target_md = self.repo.portfolio_content / collection / "es" / f"{slug}.md"
         self.repo.copy_file(local_md, target_md)
         
-        self.repo.save_doc_state(project_dir, {"is_working_copy_active": False, "doc_status": "promovido"})
-        return {"id": slug, "status": "published"}
-
-    def delete_project(self, collection: str, slug: str):
-        project_dir = self.repo.get_project_dir(collection, slug)
-        self.repo.delete_dir(project_dir)
-
-    def resurrect_project(self, collection: str, slug: str):
-        project_dir = self.repo.get_project_dir(collection, slug)
-        local_md = project_dir / f"{slug}.md"
+        # 4. Update state
+        self.repo.save_doc_state(project_dir, {
+            "is_working_copy_active": False, 
+            "doc_status": "promovido"
+        })
         
-        if not local_md.exists(): raise FileNotFoundError("No local working copy to resurrect")
-            
-        target_md = self.repo.portfolio_content / collection / "es" / f"{slug}.md"
-        if target_md.exists(): raise FileExistsError("The file already exists in the portfolio")
-            
-        self.repo.copy_file(local_md, target_md)
+        return {"id": slug, "status": "promovido"}
 
-    def publish_to_remote(self, collection: str, slug: str) -> Dict[str, Any]:
+    def publish_global(self, collection: str, slug: str) -> Dict[str, Any]:
+        """
+        Final publishing step:
+        1. Optimizes images.
+        2. Consolidates files.
+        3. Clean Git transaction (commit & push).
+        """
         project_dir = self.repo.get_project_dir(collection, slug)
         state = self.repo.get_doc_state(project_dir)
         
         if state.get("doc_status") == "publicado":
-            raise ValueError("El proyecto ya se encuentra publicado.")
+             return {"status": "Already published"}
+
+        # 1. Verify existence of both ES and EN in local memory (shadow drafts)
+        local_es = project_dir / f"{slug}.md"
+        local_en = project_dir / f"{slug}.en.md"
+        
+        if not local_es.exists() or not local_en.exists():
+            raise ValueError("Faltan archivos locales (Español o Inglés) para realizar la publicación global.")
+
+        # 2. Ensure "draft: false" in both
+        self.repo.set_metadata(local_es, {"draft": False})
+        self.repo.set_metadata(local_en, {"draft": False})
+
+        # 3. Synchronize MD files to portfolio
+        portfolio_es = self.repo.portfolio_content / collection / "es" / f"{slug}.md"
+        portfolio_en = self.repo.portfolio_content / collection / "en" / f"{slug}.md"
+        self.repo.copy_file(local_es, portfolio_es)
+        self.repo.copy_file(local_en, portfolio_en)
+
+        # 4. Image Optimization and Deployment
+        public_dir = self.image_opt.optimize_and_deploy(collection, slug)
+
+        # 5. Git Transaction
+        try:
+            self.git.ensure_clean_index()
+        except ValueError as e:
+            # Dirty index is a precondition/user-fixable error (400)
+            raise HTTPException(status_code=400, detail=str(e))
+
+        try:
+            # File list for surgical commit
+            files_to_add = [
+                portfolio_es,
+                portfolio_en
+            ]
+            if public_dir.exists():
+                for asset in public_dir.glob("*.webp"):
+                    files_to_add.append(asset)
             
-        portfolio_en_md = self.repo.portfolio_content / collection / "en" / f"{slug}.md"
-        if not portfolio_en_md.exists():
-            raise ValueError(f"No se puede publicar: Falta versión en Inglés en el portafolio (en/{slug}.md)")
-            
-        state["doc_status"] = "publicado"
+            self.git.add_files(files_to_add)
+            self.git.commit(f"publish(docs): {collection}/{slug}")
+        except Exception as e:
+            logger.error(f"Git staging/commit failed: {e}")
+            raise HTTPException(status_code=500, detail=f"Error al preparar el commit de Git: {str(e)}")
+
+        try:
+            self.git.push()
+        except RuntimeError as e:
+            # Push failed: rollback the commit to keep the repo clean.
+            logger.error(f"Git push failed, rolling back commit: {e}")
+            self.git.rollback_last_commit()
+            raise HTTPException(
+                status_code=503,
+                detail="No se pudo conectar con el repositorio remoto. Verifica las credenciales SSH en el contenedor."
+            )
+
+        # 6. Final State Update
+        state.update({
+            "doc_status": "publicado",
+            "is_working_copy_active": False
+        })
         self.repo.save_doc_state(project_dir, state)
         
-        import logging
-        logger = logging.getLogger(__name__)
+        return {"status": "publicado", "slug": slug}
+
+    def forget_project_memory(self, collection: str, slug: str):
+        project_dir = self.repo.get_project_dir(collection, slug)
+        self.repo.delete_dir(project_dir)
+
+    def resurrect_portfolio_file(self, collection: str, slug: str):
+        project_dir = self.repo.get_project_dir(collection, slug)
+        local_md = project_dir / f"{slug}.md"
         
-        try:
-            cwd = str(self.repo.portfolio_path)
-            subprocess.run(["git", "add", "."], cwd=cwd, check=True, capture_output=True)
-            subprocess.run(["git", "commit", "-m", f"publish(docs): {collection}/{slug}"], cwd=cwd, check=True, capture_output=True)
-            subprocess.run(["git", "push"], cwd=cwd, check=True, capture_output=True)
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Git execution failed: {e.stderr.decode() if e.stderr else str(e)}")
-            # Rollback state
-            state["doc_status"] = "promovido"
-            self.repo.save_doc_state(project_dir, state)
-            raise ValueError("Error al sincronizar con el repositorio remoto. Verifica los logs.")
+        if not local_md.exists():
+            raise FileNotFoundError("No existe copia local para resucitar.")
             
-        return {"status": "publicado"}
+        target_md = self.repo.portfolio_content / collection / "es" / f"{slug}.md"
+        if target_md.exists():
+            raise FileExistsError("El archivo ya existe en el portafolio.")
+            
+        self.repo.copy_file(local_md, target_md)

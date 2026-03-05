@@ -19,6 +19,8 @@ from app.services.studio.assets import StudioAssetService
 from app.services.chat.conversation import ChatConversationService
 from app.services.chat.draft import ChatDraftService
 from app.services.system.vitals import SystemVitalsService
+from app.services.system.git_service import GitService
+from app.services.studio.image_service import ImageOptimizationService
 
 # Singletons / Shared Instances
 _repo = ProjectRepository()
@@ -30,6 +32,11 @@ _proj_validator = ProjectValidator()
 _cont_validator = ContentValidator()
 _studio_validator = StudioValidator()
 _vitals_service = SystemVitalsService()
+
+# Services that require instances
+_git_service = GitService(_repo.portfolio_path)
+_shot_manager = StudioShotManager(_repo, _studio_validator, _prompts, _llm)
+_image_opt_service = ImageOptimizationService(_repo, _shot_manager)
 
 # --- Dependency Providers ---
 
@@ -69,7 +76,7 @@ def get_project_working_copy():
     return ProjectWorkingCopyService(_repo, _proj_validator, _cont_validator, _llm, _prompts)
 
 def get_project_publish():
-    return ProjectPublishService(_repo, _proj_validator, _cont_validator, _llm, _prompts)
+    return ProjectPublishService(_repo, _cont_validator, _git_service, _image_opt_service, _llm, _prompts)
 
 # Studio Services
 def get_studio_shot_manager():
