@@ -24,7 +24,8 @@ class OllamaClient(LLMClient):
         }
 
         try:
-            async with httpx.AsyncClient(timeout=120.0) as client:
+            # VLM generations can take several minutes to process on local GPUs
+            async with httpx.AsyncClient(timeout=settings.OLLAMA_TIMEOUT) as client:
                 response = await client.post(f"{self.host}/api/chat", json=payload)
                 response.raise_for_status()
                 res_content = response.json()["message"]["content"]
