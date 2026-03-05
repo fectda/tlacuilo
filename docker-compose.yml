@@ -16,6 +16,7 @@ services:
       - ${PORTAFOLIO_PATH:-./portfolio}:/home/tlacuilo/portfolio
       - ./prompts:/app/prompts:ro
       - ./workflows:/app/workflows:ro
+      - ./sshkeys:/home/tlacuilo/.ssh:ro
     env_file:
       - .env
     environment:

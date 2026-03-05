@@ -20,3 +20,6 @@ projects/
 
 # Docker
 docker-compose.override.yml
+
+# Keys
+sshkeys/
