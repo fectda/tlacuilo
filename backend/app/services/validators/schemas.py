@@ -38,10 +38,10 @@ def _is_str_list(v: Any) -> bool:
 def _is_number_0_5(v: Any) -> bool:
     return isinstance(v, (int, float)) and 0 <= v <= 5
 
-def _is_url_or_empty(v: Any) -> bool:
+def _is_url(v: Any) -> bool:
     if not isinstance(v, str):
         return False
-    return v == "" or bool(re.match(r"https?://", v))
+    return bool(re.match(r"^https?://", v))
 
 def _enum(*values: str) -> Callable[[Any], bool]:
     return lambda v: v in values
@@ -72,7 +72,7 @@ _BOOL_OPT     = FieldRule(_is_bool,         "must be a boolean",                
 _STR_LIST     = FieldRule(_is_str_list,     "must be an array of strings")
 _STR_LIST_OPT = FieldRule(_is_str_list,     "must be an array of strings",         required=False)
 _PROGRESS     = FieldRule(_is_number_0_5,   "must be a number between 0 and 5")
-_URL_OPT      = FieldRule(_is_url_or_empty, "must be a valid URL or empty string",  required=False)
+_URL_OPT      = FieldRule(_is_url, "must be a valid URL",  required=False)
 
 # Valid status values — source of truth: references/STATUSES.md
 _STATUS       = FieldRule(_enum("idea", "poc", "wip", "done"),
