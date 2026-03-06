@@ -5,6 +5,7 @@ import StudioService from '../../services/StudioService'
 import { SHOT_TYPES, ATMOSPHERES, ATMOSPHERE_STYLES } from '../../constants/studio'
 import { UI_TEXTS } from '../../constants/uiTexts'
 import ModalConfirm from '../common/ModalConfirm.vue'
+import ImageModal from '../common/ImageModal.vue'
 
 const texts = UI_TEXTS.SHOT_DETAIL
 const commonTexts = UI_TEXTS.COMMON
@@ -39,6 +40,17 @@ const confirmModal = ref({
 
 const showConfirm = (title, message, onConfirm, type = 'info') => {
     confirmModal.value = { show: true, title, message, onConfirm, type }
+}
+
+// Fullscreen Image State
+const isFullscreenOpen = ref(false)
+const fullscreenUrl = ref('')
+const fullscreenTitle = ref('')
+
+const openFullscreen = (url, title) => {
+    fullscreenUrl.value = url
+    fullscreenTitle.value = title
+    isFullscreenOpen.value = true
 }
 
 const pollingInterval = ref(null)
@@ -370,8 +382,11 @@ const handleDeleteVariant = async (comflyId) => {
                     <!-- ── Reference Photo (Only if no variants) ───────────────────────────── -->
                     <section v-if="originalUrl && (!shot.images || !shot.images.length)" class="space-y-2">
                         <p class="text-[9px] text-neutral-300 font-black uppercase tracking-[0.25em]">{{ texts.LABEL_REF_PHOTO }}</p>
-                        <div class="aspect-[3/2] bg-black border border-white/10 overflow-hidden">
+                        <div class="aspect-[3/2] bg-black border border-white/10 overflow-hidden relative group">
                             <img :src="originalUrl" alt="original" class="w-full h-full object-cover" />
+                            <div @click="openFullscreen(originalUrl, 'Foto de Referencia')" class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center cursor-pointer">
+                                <span class="px-4 py-2 border border-white/40 text-white text-[10px] font-black uppercase tracking-widest bg-black/60 shadow-xl">⛶ Ampliar</span>
+                            </div>
                         </div>
                     </section>
 
@@ -403,6 +418,16 @@ const handleDeleteVariant = async (comflyId) => {
                                          class="w-full h-full object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
                                     <!-- Mini Badges -->
                                     <div v-if="img.status === 'approved'" class="absolute top-2 right-2 bg-cyan-500 text-black px-1.5 py-0.5 text-[7px] font-black uppercase">Approved ✓</div>
+                                    
+                                    <!-- Zoom Trigger Overlay -->
+                                    <div class="absolute inset-x-0 bottom-0 py-4 bg-gradient-to-t from-black via-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-all flex items-end justify-center">
+                                        <button 
+                                            @click.stop="openFullscreen(getImageUrl(img.id), `Variante ${img.id.split('-')[0]}`)"
+                                            class="px-3 py-1.5 border border-white/20 text-white text-[9px] font-black uppercase tracking-widest bg-black/80 hover:bg-white hover:text-black transition-all"
+                                        >
+                                            ⛶ Pantalla Completa
+                                        </button>
+                                    </div>
                                 </div>
 
                                 <!-- Action Layer (Overlay when selected) -->
@@ -509,6 +534,12 @@ const handleDeleteVariant = async (comflyId) => {
             :type="confirmModal.type"
             @close="confirmModal.show = false"
             @confirm="confirmModal.onConfirm"
+        />
+        <ImageModal
+            :isOpen="isFullscreenOpen"
+            :imageUrl="fullscreenUrl"
+            :title="fullscreenTitle"
+            @close="isFullscreenOpen = false"
         />
     </div>
 </template>
