@@ -1,1 +1,1 @@
-Complex multi-point lighting with ALL sources off-camera: (1) Cold turquoise (#00A6B6) soft-box key light upper-right at 30° casting a teal glaze on curved plastics, (2) Precise teal rim-light on the silhouette, (3) Subtle cool fill light from the camera's axis to reveal textures.
+Complex multi-point lighting with ALL sources off-camera: (1) Cold turquoise (#00A6B6) soft-box key light positioned to cast a teal glaze on curved and industrial surfaces, (2) Precise teal rim-light on the silhouette, (3) Subtle cool fill light from the camera's axis to reveal textures.

@@ -1,1 +1,1 @@
-High-end professional studio product photography. The object rests on a massive, matte-black industrial technical workbench with subtle obsidian reflections. Flawless immersive pitch-black infinite studio background (#050505).
+High-end professional studio product photography. The object rests on a sleek, matte-black technical surface with subtle obsidian reflections, adapting its texture to the mechanical nature of the subject. Flawless immersive pitch-black infinite studio background (#050505).
